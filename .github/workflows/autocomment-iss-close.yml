@@ -16,7 +16,8 @@ jobs:
             - name: 💡 Check if author is not the repo owner
               id: check
               run: |
-                  if [ "${{ github.event.issue.user.login }}" != "${{ github.repository_owner }}" ]; then
+                  ASSOCIATION="${{ github.event.issue.author_association }}"
+                  if [ "$ASSOCIATION" != "OWNER" ] && [ "$ASSOCIATION" != "MEMBER" ] && [ "$ASSOCIATION" != "COLLABORATOR" ]; then
                     echo "is_contributor=true" >> "$GITHUB_OUTPUT"
                   else
                     echo "is_contributor=false" >> "$GITHUB_OUTPUT"
@@ -37,7 +38,6 @@ jobs:
                       The issue **"${issueTitle}"** has been closed. 
                       Thank you for your contribution to **SahiDawa**! Your efforts help us build a safer medicine verification platform for India. 🇮🇳
                       
-                      If this was part of **GSSoC 2026**, make sure to check out our other open issues.
                       If you still face any problems or have new suggestions, feel free to open a new issue. Happy coding! 🚀`;
 
                       await github.rest.issues.createComment({

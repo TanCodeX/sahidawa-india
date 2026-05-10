@@ -15,10 +15,11 @@ jobs:
             - name: 💡 Check if author is not the owner
               id: check_owner
               run: |
-                  if [ "${{ github.event.issue.user.login }}" != "${{ github.repository_owner }}" ]; then
-                    echo "is_contributor=true" >> $GITHUB_OUTPUT
+                  ASSOCIATION="${{ github.event.issue.author_association }}"
+                  if [ "$ASSOCIATION" != "OWNER" ] && [ "$ASSOCIATION" != "MEMBER" ] && [ "$ASSOCIATION" != "COLLABORATOR" ]; then
+                    echo "is_contributor=true" >> "$GITHUB_OUTPUT"
                   else
-                    echo "is_contributor=false" >> $GITHUB_OUTPUT
+                    echo "is_contributor=false" >> "$GITHUB_OUTPUT"
                   fi
 
             - name: 🔍 Check if this is their first contribution
