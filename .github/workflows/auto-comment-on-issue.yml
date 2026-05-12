@@ -46,7 +46,7 @@ jobs:
                         issue_number: context.issue.number,
                         owner: context.repo.owner,
                         repo: context.repo.repo,
-                        body: `🎉 Namaste, @${context.payload.issue.user.login}! Welcome to SahiDawa — India's first open-source citizen medicine verifier. 🩺
+                        body: `🎉 Namaste, @${context.payload.issue.user.login}! Welcome to SahiDawa🩺
 
                         Thank you so much for opening your first issue! We are thrilled to have you here. 
                         If you are participating in **GSSoC 2026**, please ensure you wait to be formally assigned before starting work on a Pull Request.

@@ -1,4 +1,4 @@
-/mnt/data2/gssoc/LegalHuB/.github/workflows/detect-duplicate-issue.ymlname: Duplicate Issue Checker
+name: Duplicate Issue Checker
 
 on:
   issues:
