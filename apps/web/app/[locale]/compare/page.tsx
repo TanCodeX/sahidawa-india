@@ -6,11 +6,9 @@ import { PageHeader } from "../components/PageHeader";
 import Footer from "../components/Footer";
 import ComparisonGrid, { type Medicine } from "@/src/components/ComparisonGrid";
 import MedicineSearchSelect from "@/src/components/MedicineSearchSelect";
+import { COMPARE_SELECT_FIELDS } from "@/src/lib/compareSelectFields";
 import { supabase } from "@/lib/supabase";
 import { mapMedicineRow } from "@/src/lib/mapMedicineRow";
-
-const SELECT_FIELDS =
-    "id, brand_name, generic_name, composition, manufacturer, expiry_date, cdsco_approval_status";
 
 async function searchMedicines(query: string): Promise<Medicine[]> {
     const q = query.trim();
@@ -19,7 +17,7 @@ async function searchMedicines(query: string): Promise<Medicine[]> {
     const pattern = `%${q.replace(/[%_\\]/g, "\\$&")}%`;
     const { data, error } = await supabase
         .from("medicines")
-        .select(SELECT_FIELDS)
+        .select(COMPARE_SELECT_FIELDS)
         .or(`brand_name.ilike.${pattern},generic_name.ilike.${pattern}`)
         .limit(25);
 
