@@ -19,7 +19,9 @@ describe("i18n locale availability", () => {
     });
 
     it("matches every routing locale in the middleware config", () => {
-        const localeMatcher = middlewareConfig.matcher.find((matcher) => matcher.endsWith("/:path*"));
+        const localeMatcher = middlewareConfig.matcher.find((matcher) =>
+            matcher.endsWith("/:path*")
+        );
         const matchedLocales = localeMatcher?.match(/\(([^)]+)\)/)?.[1].split("|");
 
         expect(matchedLocales).toEqual(expect.arrayContaining(routing.locales));

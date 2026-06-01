@@ -85,7 +85,7 @@ export default function SearchBar({ dark = false }: { dark?: boolean }) {
                 setIsOpen(false);
                 return;
             }
-            
+
             const seen = new Set<string>();
             const results: string[] = [];
             if (data && data.length > 0) {

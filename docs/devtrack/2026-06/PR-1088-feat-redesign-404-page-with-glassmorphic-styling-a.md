@@ -20,6 +20,7 @@ The previous 404 error page (`apps/web/app/[locale]/not-found.tsx`) was a static
 The core of this change resides in `apps/web/app/[locale]/not-found.tsx`. We removed all `style={{...}}` attributes and custom `onMouseOver`/`onMouseOut` event handlers, migrating the entire layout and styling to **Tailwind CSS v4.0** utility classes.
 
 The page now consists of:
+
 1.  **Root Container:** A `div` with classes like `relative flex flex-grow flex-col items-center justify-center px-4 py-16 text-center` provides the main layout and ensures the content is centered and takes up available space.
 2.  **Background Soft Glows:** Two `div` elements are positioned absolutely (`absolute inset-0 z-0 overflow-hidden select-none`) to create subtle, slow-fading glowing meshes. These use `bg-emerald-500/10 blur-[80px] dark:bg-emerald-900/10` and `bg-purple-500/5 blur-[90px] dark:bg-purple-900/5` to blend with our primary theme and add visual depth.
 3.  **Main Glassmorphic Container:** The central content is housed within a `div` with extensive Tailwind classes for the glassmorphic effect: `relative z-10 w-full max-w-md overflow-hidden rounded-[2.5rem] border border-(--color-border-muted) bg-white/40 p-8 shadow-2xl backdrop-blur-md sm:p-10 dark:bg-slate-900/40`. This applies a semi-transparent background, blur effect, rounded borders, and shadow.
@@ -27,9 +28,9 @@ The page now consists of:
 5.  **Pulsing Warning Icon:** We integrated the `AlertCircle` icon from the `lucide-react` library. It's wrapped in a styled `div` and given the `animate-pulse` Tailwind class to create a micro-animated, pulsing effect, enhancing the visual alert.
 6.  **Content:** The "Error 404" badge, main heading (`Page Not Found`), and descriptive paragraph are all styled using Tailwind classes for consistent typography and spacing.
 7.  **Contextual Actions:** Two navigation links are provided:
-    *   **"Back to Home":** This is the primary action, styled with `bg-slate-900` and `text-white`. It uses the `Home` icon from `lucide-react`.
-    *   **"Scan Medicine":** This is a secondary action, styled with an outline effect (`border border-(--color-border-muted) bg-white/50`) and `text-slate-700`. It uses the `Camera` icon from `lucide-react`.
-    *   Both links now import `{ Link }` from `@/i18n/routing` instead of `next/link`. This crucial change ensures that when a user clicks these links, the current locale prefix (e.g., `/en`, `/te`) is automatically prepended to the `href` prop, maintaining the localized user experience. The `href` for "Back to Home" is `/` and for "Scan Medicine" is `/scan`.
+    - **"Back to Home":** This is the primary action, styled with `bg-slate-900` and `text-white`. It uses the `Home` icon from `lucide-react`.
+    - **"Scan Medicine":** This is a secondary action, styled with an outline effect (`border border-(--color-border-muted) bg-white/50`) and `text-slate-700`. It uses the `Camera` icon from `lucide-react`.
+    - Both links now import `{ Link }` from `@/i18n/routing` instead of `next/link`. This crucial change ensures that when a user clicks these links, the current locale prefix (e.g., `/en`, `/te`) is automatically prepended to the `href` prop, maintaining the localized user experience. The `href` for "Back to Home" is `/` and for "Scan Medicine" is `/scan`.
 
 The `package-lock.json` file was updated to include `peer: true` flags for several dependencies. This is a metadata change in the lockfile, likely reflecting an update to `npm` or dependency declarations, but does not alter the functional behavior of the application.
 
@@ -47,16 +48,16 @@ To re-implement this enhanced 404 page, a contributor would follow these steps:
 
 1.  **Locate the 404 Page:** The primary file for modification is `apps/web/app/[locale]/not-found.tsx`. This is a Next.js App Router convention for handling 404 errors within a localized route segment.
 2.  **Import Necessary Components:**
-    *   Replace `import Link from "next/link";` with `import { Link } from "@/i18n/routing";` to ensure i18n-aware navigation.
-    *   Import icons: `import { Home, Camera, AlertCircle } from "lucide-react";`. Ensure `lucide-react` is installed as a dependency.
+    - Replace `import Link from "next/link";` with `import { Link } from "@/i18n/routing";` to ensure i18n-aware navigation.
+    - Import icons: `import { Home, Camera, AlertCircle } from "lucide-react";`. Ensure `lucide-react` is installed as a dependency.
 3.  **Structure the Layout with Tailwind CSS:**
-    *   Start with a root `div` that centers content and provides flexibility:
+    - Start with a root `div` that centers content and provides flexibility:
         ```tsx
         <div className="relative flex flex-grow flex-col items-center justify-center px-4 py-16 text-center">
             {/* ... content ... */}
         </div>
         ```
-    *   Add background elements for visual flair. These should be `absolute` and `pointer-events-none` to not interfere with interactions:
+    - Add background elements for visual flair. These should be `absolute` and `pointer-events-none` to not interfere with interactions:
         ```tsx
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden select-none">
             <div className="absolute top-1/4 left-1/2 h-[350px] w-[350px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-emerald-500/10 blur-[80px] dark:bg-emerald-900/10"></div>
@@ -72,7 +73,7 @@ To re-implement this enhanced 404 page, a contributor would follow these steps:
     </div>
     ```
 5.  **Integrate Icons and Animations:**
-    *   Place the `AlertCircle` icon within a styled `div` and apply the `animate-pulse` class for a subtle animation:
+    - Place the `AlertCircle` icon within a styled `div` and apply the `animate-pulse` class for a subtle animation:
         ```tsx
         <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 shadow-inner dark:bg-emerald-950/40 dark:text-emerald-400">
             <AlertCircle size={44} strokeWidth={2} className="animate-pulse" />
@@ -80,9 +81,9 @@ To re-implement this enhanced 404 page, a contributor would follow these steps:
         ```
 6.  **Add Text Content:** Use standard HTML elements (`span`, `h1`, `p`) and style them with Tailwind classes for typography, color, and spacing.
 7.  **Implement Localized Navigation Links:**
-    *   Use the imported `Link` component from `@/i18n/routing`.
-    *   Provide `href` values relative to the root (`/` for home, `/scan` for scanner).
-    *   Style the links using Tailwind for buttons, including hover effects and icon integration:
+    - Use the imported `Link` component from `@/i18n/routing`.
+    - Provide `href` values relative to the root (`/` for home, `/scan` for scanner).
+    - Style the links using Tailwind for buttons, including hover effects and icon integration:
         ```tsx
         <Link href="/" className="group flex items-center justify-center gap-2 rounded-2xl bg-slate-900 px-6 py-4 font-bold text-white shadow-lg shadow-slate-900/20 transition-all hover:-translate-y-0.5 hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200">
             <Home size={18} className="transition-transform group-hover:scale-110" />
@@ -98,6 +99,7 @@ To re-implement this enhanced 404 page, a contributor would follow these steps:
 ## Impact on System Architecture
 
 This change primarily impacts the frontend user experience and the consistency of our design system.
+
 1.  **Enhanced User Experience:** By providing a visually appealing, responsive, and helpful 404 page, we significantly improve the user experience when navigating to non-existent routes. This reduces frustration and guides users back into the application flow more effectively.
 2.  **Design System Consistency:** The refactoring to Tailwind CSS and the adoption of glassmorphic styling ensure that the 404 page now adheres to SahiDawa's modern design language, reinforcing brand identity and visual coherence across the platform.
 3.  **Improved Internationalization:** The integration of `@/i18n/routing` for navigation on the 404 page closes a critical gap in our internationalization strategy. It guarantees that locale context is preserved, preventing unexpected language switches and providing a seamless experience for our global user base.
@@ -107,6 +109,7 @@ This change primarily impacts the frontend user experience and the consistency o
 ## Testing & Verification
 
 We performed manual verification to ensure the changes met the requirements:
+
 1.  **Local Development Environment:** The application was run using `npm run dev`.
 2.  **Route Navigation:** We navigated to an arbitrary non-existent route, specifically `http://localhost:3000/en/page-does-not-exist`, to trigger the 404 page.
 3.  **Responsiveness Check:** The page's layout and elements were checked across various standard device viewports (mobile, tablet, desktop) to confirm responsiveness and correct rendering.
@@ -114,7 +117,8 @@ We performed manual verification to ensure the changes met the requirements:
 5.  **Visual Fidelity:** The glassmorphic effects, background glows, icon animations, and overall styling were visually inspected to ensure they matched the intended design and integrated well with the SahiDawa theme.
 
 Edge cases considered include:
-*   **Dark Mode:** The styling includes `dark:` variants for Tailwind classes, ensuring the page renders correctly in both light and dark modes.
-*   **Browser Compatibility:** Tailwind CSS is designed for modern browsers, and the use of `backdrop-blur-md` is widely supported.
-*   **JavaScript Disabled:** While the page is a "use client" component, the core HTML structure and basic styling would still be present, though animations and interactive elements would be absent. This is an acceptable degradation for an error page.
-*   **Missing `i18n/routing`:** If the `@/i18n/routing` module were misconfigured or missing, the `Link` component would likely throw an error, preventing navigation. This is covered by our standard build and deployment processes.
+
+- **Dark Mode:** The styling includes `dark:` variants for Tailwind classes, ensuring the page renders correctly in both light and dark modes.
+- **Browser Compatibility:** Tailwind CSS is designed for modern browsers, and the use of `backdrop-blur-md` is widely supported.
+- **JavaScript Disabled:** While the page is a "use client" component, the core HTML structure and basic styling would still be present, though animations and interactive elements would be absent. This is an acceptable degradation for an error page.
+- **Missing `i18n/routing`:** If the `@/i18n/routing` module were misconfigured or missing, the `Link` component would likely throw an error, preventing navigation. This is covered by our standard build and deployment processes.

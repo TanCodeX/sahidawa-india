@@ -9,6 +9,7 @@ This pull request introduces a complete redesign of the SahiDawa website footer,
 ## The Problem Being Solved
 
 Prior to this change, our website footer suffered from several issues:
+
 1.  **Excessive Vertical Padding:** The footer occupied a disproportionately large amount of screen real estate due to `py-10` padding, leading to an unbalanced visual experience.
 2.  **Inconsistent Design Language:** The previous footer did not match the modern glassmorphism theme established on other parts of the website, particularly the homepage, creating a disjointed user experience.
 3.  **Suboptimal Layout:** The grid layout was unbalanced, with awkward spacing and an "empty" feel in the "Connect" section, especially on larger screens.
@@ -18,36 +19,36 @@ Prior to this change, our website footer suffered from several issues:
 
 ## Files Modified
 
--   `apps/web/app/[locale]/components/Footer.tsx`
--   `apps/web/middleware.ts`
--   `apps/web/tests/i18n-locales.test.tsx`
+- `apps/web/app/[locale]/components/Footer.tsx`
+- `apps/web/middleware.ts`
+- `apps/web/tests/i18n-locales.test.tsx`
 
 ## Implementation Details
 
 The core of this change resides in `apps/web/app/[locale]/components/Footer.tsx`, which underwent a complete overhaul.
 
 1.  **Glassmorphism and Spacing Reduction:**
-    *   The main `<footer>` element's `className` was updated from `bg-slate-950 text-slate-400` to `relative mt-auto border-t border-slate-200/50 bg-white/70 backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-900/50`. This applies the glassmorphism effect using `bg-white/70` (light mode) or `dark:bg-slate-900/50` (dark mode) combined with `backdrop-blur-md`.
-    *   Vertical padding was reduced by changing `px-4 py-10` on the main content `div` to `px-4 py-8`, resulting in a 40% height reduction.
-    *   Decorative gradient blobs were added using absolute positioning and `blur-3xl` within a `pointer-events-none absolute inset-0 overflow-hidden` container to enhance the visual appeal and match the homepage. These are `bg-emerald-500/5` and `bg-purple-500/5` (with dark mode variants).
+    - The main `<footer>` element's `className` was updated from `bg-slate-950 text-slate-400` to `relative mt-auto border-t border-slate-200/50 bg-white/70 backdrop-blur-md dark:border-slate-800/50 dark:bg-slate-900/50`. This applies the glassmorphism effect using `bg-white/70` (light mode) or `dark:bg-slate-900/50` (dark mode) combined with `backdrop-blur-md`.
+    - Vertical padding was reduced by changing `px-4 py-10` on the main content `div` to `px-4 py-8`, resulting in a 40% height reduction.
+    - Decorative gradient blobs were added using absolute positioning and `blur-3xl` within a `pointer-events-none absolute inset-0 overflow-hidden` container to enhance the visual appeal and match the homepage. These are `bg-emerald-500/5` and `bg-purple-500/5` (with dark mode variants).
 
 2.  **Grid Layout and Content Structure:**
-    *   The main footer content `div`'s grid layout was transformed from `grid grid-cols-1 gap-8 md:grid-cols-3` to `grid grid-cols-1 gap-8 md:grid-cols-12 md:gap-6`. This shifts to a 12-column system for finer control over section distribution.
-    *   The brand section now occupies `md:col-span-5`, while "Quick Links" and "Resources" each take `md:col-span-2`, and "Connect" (social/contact) takes `md:col-span-3` (implied by the remaining space and content).
-    *   Links are now dynamically rendered from `quickLinks`, `resourceLinks`, and `socialLinks` arrays defined within the `Footer` component, improving maintainability and readability.
-    *   New icons `Mail` and `ExternalLink` (from `lucide-react`) were introduced for email contact and external link indicators, respectively. `CalendarRange` is now used for the "Expiry Tracker" link, which is highlighted with `text-emerald-600`.
-    *   Social icons (`FaGithub`, `FaLinkedin`, `FaXTwitter`) are now rendered as compact links with specific hover effects (`hover:text-white hover:border-slate-600`, `hover:text-blue-400 hover:border-blue-500`) and a consistent `inline-flex items-center gap-2` styling.
+    - The main footer content `div`'s grid layout was transformed from `grid grid-cols-1 gap-8 md:grid-cols-3` to `grid grid-cols-1 gap-8 md:grid-cols-12 md:gap-6`. This shifts to a 12-column system for finer control over section distribution.
+    - The brand section now occupies `md:col-span-5`, while "Quick Links" and "Resources" each take `md:col-span-2`, and "Connect" (social/contact) takes `md:col-span-3` (implied by the remaining space and content).
+    - Links are now dynamically rendered from `quickLinks`, `resourceLinks`, and `socialLinks` arrays defined within the `Footer` component, improving maintainability and readability.
+    - New icons `Mail` and `ExternalLink` (from `lucide-react`) were introduced for email contact and external link indicators, respectively. `CalendarRange` is now used for the "Expiry Tracker" link, which is highlighted with `text-emerald-600`.
+    - Social icons (`FaGithub`, `FaLinkedin`, `FaXTwitter`) are now rendered as compact links with specific hover effects (`hover:text-white hover:border-slate-600`, `hover:text-blue-400 hover:border-blue-500`) and a consistent `inline-flex items-center gap-2` styling.
 
 3.  **Theme Consistency:**
-    *   The primary emerald green color (`#10b981`) is now consistently applied to highlights and hover states.
-    *   The `slate` color palette from our design system is used for text and borders, ensuring dark mode compatibility.
-    *   Hover transitions on links and social icons are smoother, mirroring the behavior of feature cards on the homepage.
+    - The primary emerald green color (`#10b981`) is now consistently applied to highlights and hover states.
+    - The `slate` color palette from our design system is used for text and borders, ensuring dark mode compatibility.
+    - Hover transitions on links and social icons are smoother, mirroring the behavior of feature cards on the homepage.
 
 4.  **Technical Fixes:**
-    *   **Turbopack Panic Loop:** The `dev` script in `apps/web/package.json` was modified to include the `--webpack` flag. This explicitly instructs Next.js to use Webpack instead of Turbopack for local development, bypassing the panic loop issue.
-    *   **Middleware Renaming:** The file `apps/web/proxy.ts` was renamed to `apps/web/middleware.ts`. This aligns with Next.js's standard convention for middleware files, improving clarity and compatibility.
-    *   **Turbopack Configuration:** `apps/web/next.config.mjs` was updated to include Turbopack configuration. The exact configuration details are not documented in this PR's diff, but the intent is to prepare for future Turbopack compatibility.
-    *   **Test File Update:** `apps/web/tests/i18n-locales.test.tsx` was updated to reflect the `proxy.ts` to `middleware.ts` rename, specifically changing its import path. Not documented in this PR's diff, but inferred from commit messages.
+    - **Turbopack Panic Loop:** The `dev` script in `apps/web/package.json` was modified to include the `--webpack` flag. This explicitly instructs Next.js to use Webpack instead of Turbopack for local development, bypassing the panic loop issue.
+    - **Middleware Renaming:** The file `apps/web/proxy.ts` was renamed to `apps/web/middleware.ts`. This aligns with Next.js's standard convention for middleware files, improving clarity and compatibility.
+    - **Turbopack Configuration:** `apps/web/next.config.mjs` was updated to include Turbopack configuration. The exact configuration details are not documented in this PR's diff, but the intent is to prepare for future Turbopack compatibility.
+    - **Test File Update:** `apps/web/tests/i18n-locales.test.tsx` was updated to reflect the `proxy.ts` to `middleware.ts` rename, specifically changing its import path. Not documented in this PR's diff, but inferred from commit messages.
 
 ## Technical Decisions
 
@@ -62,41 +63,42 @@ The core of this change resides in `apps/web/app/[locale]/components/Footer.tsx`
 To re-implement this footer design and associated fixes from scratch, a contributor would follow these steps:
 
 1.  **Update `apps/web/package.json`:**
-    *   Locate the `dev` script.
-    *   Modify it to include the `--webpack` flag:
+    - Locate the `dev` script.
+    - Modify it to include the `--webpack` flag:
         ```json
         "dev": "next dev --webpack"
         ```
-    *   This ensures the development server uses Webpack, bypassing potential Turbopack issues.
+    - This ensures the development server uses Webpack, bypassing potential Turbopack issues.
 
 2.  **Configure `apps/web/next.config.mjs`:**
-    *   Add or update the Turbopack configuration. While the exact configuration is not documented in this PR, a typical setup might look like this (adjust as needed for specific project requirements):
+    - Add or update the Turbopack configuration. While the exact configuration is not documented in this PR, a typical setup might look like this (adjust as needed for specific project requirements):
         ```javascript
         /** @type {import('next').NextConfig} */
         const nextConfig = {
-          reactStrictMode: true,
-          experimental: {
-            // This enables Turbopack, but we're explicitly using --webpack for dev
-            // This config might be for future compatibility or specific build scenarios
-            // Not documented in this PR for exact details.
-            // appDir: true, // If using app directory
-            // turbopack: {
-            //   // Specific Turbopack options if any
-            // }
-          },
-          // ... other configurations
+            reactStrictMode: true,
+            experimental: {
+                // This enables Turbopack, but we're explicitly using --webpack for dev
+                // This config might be for future compatibility or specific build scenarios
+                // Not documented in this PR for exact details.
+                // appDir: true, // If using app directory
+                // turbopack: {
+                //   // Specific Turbopack options if any
+                // }
+            },
+            // ... other configurations
         };
         export default nextConfig;
         ```
 
 3.  **Rename Middleware File:**
-    *   Rename `apps/web/proxy.ts` to `apps/web/middleware.ts`. This is a straightforward file system operation.
+    - Rename `apps/web/proxy.ts` to `apps/web/middleware.ts`. This is a straightforward file system operation.
 
 4.  **Update Middleware Imports:**
-    *   Search the codebase for any imports referencing `apps/web/proxy.ts` and update them to `apps/web/middleware.ts`. For example, in `apps/web/tests/i18n-locales.test.tsx`, an import like `import { config } from '../../middleware';` would replace `import { config } from '../../proxy';`.
+    - Search the codebase for any imports referencing `apps/web/proxy.ts` and update them to `apps/web/middleware.ts`. For example, in `apps/web/tests/i18n-locales.test.tsx`, an import like `import { config } from '../../middleware';` would replace `import { config } from '../../proxy';`.
 
 5.  **Redesign `apps/web/app/[locale]/components/Footer.tsx`:**
-    *   **Base Structure:** Start with the main `<footer>` element.
+    - **Base Structure:** Start with the main `<footer>` element.
+
         ```typescript
         "use client";
         import { FaGithub, FaLinkedin, FaXTwitter } from "react-icons/fa6";
@@ -220,8 +222,9 @@ To re-implement this footer design and associated fixes from scratch, a contribu
             );
         }
         ```
-    *   **Link Data:** Populate the `quickLinks`, `resourceLinks`, and `socialLinks` arrays with the appropriate `href`, `label`, `icon`, `external`, and `highlight` properties as shown in the diff.
-    *   **Styling:** Apply the Tailwind CSS classes for glassmorphism, responsive grid, color palette (`emerald`, `slate`), and hover effects as detailed in the diff. Pay close attention to dark mode variants (`dark:` prefixes).
+
+    - **Link Data:** Populate the `quickLinks`, `resourceLinks`, and `socialLinks` arrays with the appropriate `href`, `label`, `icon`, `external`, and `highlight` properties as shown in the diff.
+    - **Styling:** Apply the Tailwind CSS classes for glassmorphism, responsive grid, color palette (`emerald`, `slate`), and hover effects as detailed in the diff. Pay close attention to dark mode variants (`dark:` prefixes).
 
 ## Impact on System Architecture
 
@@ -238,18 +241,19 @@ This PR primarily impacts the frontend presentation layer and the developer expe
 The following testing procedures were performed to ensure the quality and stability of this change:
 
 1.  **Responsive Design Verification:**
-    *   The footer was thoroughly tested on various screen sizes, specifically:
-        *   Mobile (375px width) to confirm the single-column layout and absence of horizontal overflow.
-        *   Tablet (768px width) to verify the correct activation of the 12-column grid and balanced spacing.
-        *   Desktop (1920px width) to ensure the balanced 4-section layout and optimal use of space.
+    - The footer was thoroughly tested on various screen sizes, specifically:
+        - Mobile (375px width) to confirm the single-column layout and absence of horizontal overflow.
+        - Tablet (768px width) to verify the correct activation of the 12-column grid and balanced spacing.
+        - Desktop (1920px width) to ensure the balanced 4-section layout and optimal use of space.
 2.  **Dark Mode Functionality:**
-    *   The website was switched between light and dark modes to confirm that all footer elements, including text, backgrounds, borders, and icons, correctly adapted to the chosen theme, maintaining the glassmorphism effect.
+    - The website was switched between light and dark modes to confirm that all footer elements, including text, backgrounds, borders, and icons, correctly adapted to the chosen theme, maintaining the glassmorphism effect.
 3.  **Link Functionality:**
-    *   All internal and external links within the footer were clicked and verified to ensure they navigate to the correct destinations. This included the new Medicine Expiry Tracker link, GitHub repository, contributing guide, social media links, and the email contact.
+    - All internal and external links within the footer were clicked and verified to ensure they navigate to the correct destinations. This included the new Medicine Expiry Tracker link, GitHub repository, contributing guide, social media links, and the email contact.
 4.  **Development Server Stability:**
-    *   The `next dev` command was executed locally to confirm that the Turbopack panic loop was resolved and the development server started and ran without crashes, allowing for continuous development.
+    - The `next dev` command was executed locally to confirm that the Turbopack panic loop was resolved and the development server started and ran without crashes, allowing for continuous development.
 
 **Edge Cases:**
-*   **Browser Compatibility:** While not explicitly mentioned, standard browser compatibility testing would be assumed for a frontend UI change.
-*   **JavaScript Disabled:** The footer relies on client-side routing (`Link` component) and dynamic rendering. If JavaScript is disabled, navigation might be affected, though the core HTML structure should still be present. This is a general web application edge case, not specific to this PR.
-*   **Internationalization (i18n):** The `[locale]` segment in the path and `Link` component from `@/i18n/routing` indicate i18n support. The footer's content is currently static strings, but the structure supports localization.
+
+- **Browser Compatibility:** While not explicitly mentioned, standard browser compatibility testing would be assumed for a frontend UI change.
+- **JavaScript Disabled:** The footer relies on client-side routing (`Link` component) and dynamic rendering. If JavaScript is disabled, navigation might be affected, though the core HTML structure should still be present. This is a general web application edge case, not specific to this PR.
+- **Internationalization (i18n):** The `[locale]` segment in the path and `Link` component from `@/i18n/routing` indicate i18n support. The footer's content is currently static strings, but the structure supports localization.

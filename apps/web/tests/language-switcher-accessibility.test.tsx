@@ -37,9 +37,7 @@ describe("LanguageSwitcher Accessibility", () => {
         // Mock the two useState calls:
         // 1. open = false
         // 2. focusedIndex = 0
-        mockUseState
-            .mockReturnValueOnce([false, jest.fn()])
-            .mockReturnValueOnce([0, jest.fn()]);
+        mockUseState.mockReturnValueOnce([false, jest.fn()]).mockReturnValueOnce([0, jest.fn()]);
 
         const markup = renderToStaticMarkup(<LanguageSwitcher />);
 
@@ -56,9 +54,7 @@ describe("LanguageSwitcher Accessibility", () => {
         // Mock the two useState calls:
         // 1. open = true
         // 2. focusedIndex = 1 (Hindi)
-        mockUseState
-            .mockReturnValueOnce([true, jest.fn()])
-            .mockReturnValueOnce([1, jest.fn()]);
+        mockUseState.mockReturnValueOnce([true, jest.fn()]).mockReturnValueOnce([1, jest.fn()]);
 
         const markup = renderToStaticMarkup(<LanguageSwitcher />);
 
@@ -80,6 +76,6 @@ describe("LanguageSwitcher Accessibility", () => {
         expect(markup).toContain('aria-selected="false"'); // Hindi is not selected but is focused
 
         // Verify focus styling (inset ring) is applied on the focused item
-        expect(markup).toContain('ring-2 ring-emerald-500/50');
+        expect(markup).toContain("ring-2 ring-emerald-500/50");
     });
 });

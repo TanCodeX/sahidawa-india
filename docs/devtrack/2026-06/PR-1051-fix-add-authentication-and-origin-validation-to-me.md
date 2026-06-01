@@ -9,10 +9,11 @@ We have enhanced the `/api/verify` endpoint by integrating origin validation and
 ## The Problem Being Solved
 
 Prior to this PR, our `/api/verify` endpoint was vulnerable to several security issues. It lacked proper authentication and origin validation, allowing any client to send requests without restriction beyond a basic, insufficient rate limiter (`verifyLimiter`). This exposed our medicine registry to:
+
 - **Anonymous database extraction**: Attackers could send an unlimited number of batch number lookups, potentially scraping the entire database.
 - **Automated scraping**: Scripts could easily query and extract data without any identity verification.
 - **Cross-origin abuse**: Malicious websites could embed requests to our endpoint, potentially leading to data leakage or service degradation.
-The existing `verifyLimiter` (20 requests per 15 minutes) was insufficient on its own, as an attacker could still make 20 anonymous requests per window and easily rotate IP addresses to bypass it.
+  The existing `verifyLimiter` (20 requests per 15 minutes) was insufficient on its own, as an attacker could still make 20 anonymous requests per window and easily rotate IP addresses to bypass it.
 
 ## Files Modified
 
@@ -23,21 +24,21 @@ The existing `verifyLimiter` (20 requests per 15 minutes) was insufficient on it
 The core changes were implemented within the `apps/api/src/routes/verify.ts` file, which defines the `/api/verify` endpoint.
 
 1.  **Allowed Origins Configuration**:
-    *   A new constant, `ALLOWED_ORIGINS`, was introduced. This array holds a list of trusted frontend origins (e.g., `http://localhost:3000`, `https://sahidawa.vercel.app`).
-    *   The list is dynamically populated from the `process.env.ALLOWED_ORIGINS` environment variable. If the environment variable is not set, a hardcoded fallback list of development and production origins is used. This ensures flexibility in deployment and local development.
+    - A new constant, `ALLOWED_ORIGINS`, was introduced. This array holds a list of trusted frontend origins (e.g., `http://localhost:3000`, `https://sahidawa.vercel.app`).
+    - The list is dynamically populated from the `process.env.ALLOWED_ORIGINS` environment variable. If the environment variable is not set, a hardcoded fallback list of development and production origins is used. This ensures flexibility in deployment and local development.
 
 2.  **Origin Validation Function (`isAllowedOrigin`)**:
-    *   A new function, `isAllowedOrigin(req: Request)`, was added to perform the validation logic.
-    *   It first attempts to retrieve the `Origin` header from the incoming request (`req.headers.origin`).
-    *   If `Origin` is not present, it checks the `Referer` header (`req.headers.referer`). If `Referer` is found, its origin part is extracted using `new URL(referer).origin`.
-    *   If neither `Origin` nor `Referer` provides a source, the function returns `true`, explicitly allowing requests that do not send these headers. This is a deliberate decision to support clients that might not include these headers (e.g., certain backend services or direct API calls without a browser context, if deemed acceptable).
-    *   Finally, it checks if the determined `source` (origin or referer's origin) is included in the `ALLOWED_ORIGINS` array.
+    - A new function, `isAllowedOrigin(req: Request)`, was added to perform the validation logic.
+    - It first attempts to retrieve the `Origin` header from the incoming request (`req.headers.origin`).
+    - If `Origin` is not present, it checks the `Referer` header (`req.headers.referer`). If `Referer` is found, its origin part is extracted using `new URL(referer).origin`.
+    - If neither `Origin` nor `Referer` provides a source, the function returns `true`, explicitly allowing requests that do not send these headers. This is a deliberate decision to support clients that might not include these headers (e.g., certain backend services or direct API calls without a browser context, if deemed acceptable).
+    - Finally, it checks if the determined `source` (origin or referer's origin) is included in the `ALLOWED_ORIGINS` array.
 
 3.  **Middleware Chain Modification**:
-    *   The `router.post("/", ...)` declaration for the `/api/verify` endpoint was updated to include new middleware.
-    *   The `optionalAuth` middleware was added as the first middleware in the chain. This middleware attempts to authenticate the user based on a Supabase Bearer token but does not reject the request if no token is present or valid. It populates `req.user` if authentication is successful.
-    *   The existing `verifyLimiter` middleware remains. With `optionalAuth` preceding it, the rate limiter can now leverage user information (if available) to apply limits on a per-authenticated-user basis, rather than solely per IP address.
-    *   A custom middleware function was inserted *before* the asynchronous route handler:
+    - The `router.post("/", ...)` declaration for the `/api/verify` endpoint was updated to include new middleware.
+    - The `optionalAuth` middleware was added as the first middleware in the chain. This middleware attempts to authenticate the user based on a Supabase Bearer token but does not reject the request if no token is present or valid. It populates `req.user` if authentication is successful.
+    - The existing `verifyLimiter` middleware remains. With `optionalAuth` preceding it, the rate limiter can now leverage user information (if available) to apply limits on a per-authenticated-user basis, rather than solely per IP address.
+    - A custom middleware function was inserted _before_ the asynchronous route handler:
         ```typescript
         (req: Request, res: Response, next) => {
             if (!isAllowedOrigin(req)) {
@@ -45,7 +46,7 @@ The core changes were implemented within the `apps/api/src/routes/verify.ts` fil
                 return;
             }
             next();
-        }
+        };
         ```
         This middleware invokes `isAllowedOrigin(req)`. If the origin is not allowed, it immediately sends a `403 Forbidden` response with the message "Access denied: unrecognized origin" and terminates the request. If the origin is allowed, it calls `next()` to pass control to the subsequent middleware and the main route handler.
 
@@ -62,25 +63,21 @@ The core changes were implemented within the `apps/api/src/routes/verify.ts` fil
 To re-implement this feature or add similar security measures to another endpoint, follow these steps:
 
 1.  **Define Allowed Origins**:
-    *   Create an array of allowed origins. It's best practice to load this from an environment variable for flexibility.
-    *   Example:
+    - Create an array of allowed origins. It's best practice to load this from an environment variable for flexibility.
+    - Example:
         ```typescript
-        const ALLOWED_ORIGINS = (
-            process.env.ALLOWED_ORIGINS
-                ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
-                : [
-                      "http://localhost:3000",
-                      "https://your-frontend.vercel.app",
-                  ]
-        );
+        const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+            ? process.env.ALLOWED_ORIGINS.split(",").map((s) => s.trim())
+            : ["http://localhost:3000", "https://your-frontend.vercel.app"];
         ```
 
 2.  **Create an Origin Validation Function**:
-    *   Implement a function that takes an `express.Request` object.
-    *   Extract the `Origin` header. If not present, extract the `Referer` header and parse its origin.
-    *   Handle cases where neither header is present based on your security policy (e.g., return `true` to allow, or `false` to deny).
-    *   Check if the extracted origin is in your `ALLOWED_ORIGINS` list.
-    *   Example:
+    - Implement a function that takes an `express.Request` object.
+    - Extract the `Origin` header. If not present, extract the `Referer` header and parse its origin.
+    - Handle cases where neither header is present based on your security policy (e.g., return `true` to allow, or `false` to deny).
+    - Check if the extracted origin is in your `ALLOWED_ORIGINS` list.
+    - Example:
+
         ```typescript
         import { Request } from "express";
         // ... ALLOWED_ORIGINS definition ...
@@ -95,10 +92,11 @@ To re-implement this feature or add similar security measures to another endpoin
         ```
 
 3.  **Integrate Middleware into Route Handler**:
-    *   Modify your `router.post` (or `get`, `put`, etc.) call to include the `optionalAuth` (or `requireAuth` if strictly authenticated) middleware.
-    *   Add your rate limiting middleware (`verifyLimiter` or a custom one).
-    *   Insert your custom origin validation middleware *before* your main asynchronous route handler. This ensures that unauthorized requests are rejected early.
-    *   Example:
+    - Modify your `router.post` (or `get`, `put`, etc.) call to include the `optionalAuth` (or `requireAuth` if strictly authenticated) middleware.
+    - Add your rate limiting middleware (`verifyLimiter` or a custom one).
+    - Insert your custom origin validation middleware _before_ your main asynchronous route handler. This ensures that unauthorized requests are rejected early.
+    - Example:
+
         ```typescript
         import { Router, Request, Response, NextFunction } from "express";
         import { optionalAuth } from "../middleware/auth"; // Assuming this path
@@ -107,16 +105,22 @@ To re-implement this feature or add similar security measures to another endpoin
         const router = Router();
         // ... ALLOWED_ORIGINS and isAllowedOrigin function ...
 
-        router.post("/", optionalAuth, verifyLimiter, (req: Request, res: Response, next: NextFunction) => {
-            if (!isAllowedOrigin(req)) {
-                res.status(403).json({ error: "Access denied: unrecognized origin" });
-                return;
+        router.post(
+            "/",
+            optionalAuth,
+            verifyLimiter,
+            (req: Request, res: Response, next: NextFunction) => {
+                if (!isAllowedOrigin(req)) {
+                    res.status(403).json({ error: "Access denied: unrecognized origin" });
+                    return;
+                }
+                next();
+            },
+            async (req: Request, res: Response) => {
+                // Your main route logic here
+                // ...
             }
-            next();
-        }, async (req: Request, res: Response) => {
-            // Your main route logic here
-            // ...
-        });
+        );
         ```
 
 4.  **Dependencies**: Ensure `express`, `zod` (for schema validation), and your custom `auth` and `rateLimit` middlewares are correctly imported and configured. The `URL` constructor is a standard Node.js global.
@@ -125,11 +129,11 @@ To re-implement this feature or add similar security measures to another endpoin
 
 This change significantly strengthens the security posture of the SahiDawa backend, particularly for critical data retrieval endpoints like `/api/verify`.
 
-*   **Enhanced Security**: By adding origin validation and `optionalAuth`, we have created a layered security approach that prevents anonymous scraping and cross-origin attacks, protecting our medicine registry data.
-*   **Improved Rate Limiting Effectiveness**: The `verifyLimiter` now operates more intelligently, applying limits per authenticated user where possible. This makes it harder for a single malicious actor to exhaust resources, even with IP rotation.
-*   **Precedent for Secure API Design**: This implementation sets a strong example for how future API endpoints, especially those handling sensitive data or public access, should incorporate authentication, authorization, and origin validation.
-*   **No Breaking Changes for Frontend**: Since the existing SahiDawa frontends already send Supabase authentication tokens and the endpoint now uses `optionalAuth`, there is no negative impact or required changes for our current user-facing applications. Anonymous access for verification is also preserved.
-*   **Maintainability**: The use of environment variables for `ALLOWED_ORIGINS` and modular middleware functions improves the maintainability and configurability of our API.
+- **Enhanced Security**: By adding origin validation and `optionalAuth`, we have created a layered security approach that prevents anonymous scraping and cross-origin attacks, protecting our medicine registry data.
+- **Improved Rate Limiting Effectiveness**: The `verifyLimiter` now operates more intelligently, applying limits per authenticated user where possible. This makes it harder for a single malicious actor to exhaust resources, even with IP rotation.
+- **Precedent for Secure API Design**: This implementation sets a strong example for how future API endpoints, especially those handling sensitive data or public access, should incorporate authentication, authorization, and origin validation.
+- **No Breaking Changes for Frontend**: Since the existing SahiDawa frontends already send Supabase authentication tokens and the endpoint now uses `optionalAuth`, there is no negative impact or required changes for our current user-facing applications. Anonymous access for verification is also preserved.
+- **Maintainability**: The use of environment variables for `ALLOWED_ORIGINS` and modular middleware functions improves the maintainability and configurability of our API.
 
 ## Testing & Verification
 
@@ -144,6 +148,7 @@ This change was verified through several scenarios to ensure both security and f
 7.  **Error Handling**: Requests with malformed `batchNumber` payloads were tested to ensure the `verifySchema` validation still functions correctly, returning `400 Bad Request`.
 
 Edge cases considered include:
-*   Requests from `localhost` for development purposes (covered by `http://localhost:3000`, `http://localhost:5173` in `ALLOWED_ORIGINS`).
-*   Requests where `Referer` is present but `Origin` is not, and vice-versa.
-*   The behavior of the `verifyLimiter` when `req.user` is `null` (anonymous).
+
+- Requests from `localhost` for development purposes (covered by `http://localhost:3000`, `http://localhost:5173` in `ALLOWED_ORIGINS`).
+- Requests where `Referer` is present but `Origin` is not, and vice-versa.
+- The behavior of the `verifyLimiter` when `req.user` is `null` (anonymous).

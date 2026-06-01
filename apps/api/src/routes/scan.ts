@@ -564,8 +564,8 @@ function getLevenshteinDistance(a: string, b: string): number {
             } else {
                 matrix[i][j] = Math.min(
                     matrix[i - 1][j - 1] + 1, // substitution
-                    matrix[i][j - 1] + 1,     // insertion
-                    matrix[i - 1][j] + 1      // deletion
+                    matrix[i][j - 1] + 1, // insertion
+                    matrix[i - 1][j] + 1 // deletion
                 );
             }
         }
@@ -611,9 +611,7 @@ router.post("/match", async (req: Request, res: Response) => {
     }
 
     try {
-        const { data, error } = await supabase
-            .from("medicines")
-            .select("brand_name, generic_name");
+        const { data, error } = await supabase.from("medicines").select("brand_name, generic_name");
 
         if (error) {
             logger.error(`Database error during match: ${error.message}`);
@@ -627,11 +625,7 @@ router.post("/match", async (req: Request, res: Response) => {
         }
 
         const candidates = Array.from(
-            new Set(
-                data
-                    .flatMap((m) => [m.brand_name, m.generic_name])
-                    .filter(Boolean) as string[]
-            )
+            new Set(data.flatMap((m) => [m.brand_name, m.generic_name]).filter(Boolean) as string[])
         );
 
         const scored = candidates.map((name) => {
@@ -688,7 +682,9 @@ router.post("/verify-brand", async (req: Request, res: Response) => {
             .select(
                 "brand_name, generic_name, manufacturer, batch_number, expiry_date, cdsco_approval_status, is_counterfeit_alert"
             )
-            .or(`brand_name.ilike.%${escapeIlike(brandName)}%,generic_name.ilike.%${escapeIlike(brandName)}%`)
+            .or(
+                `brand_name.ilike.%${escapeIlike(brandName)}%,generic_name.ilike.%${escapeIlike(brandName)}%`
+            )
             .limit(1)
             .maybeSingle();
 

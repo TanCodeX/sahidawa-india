@@ -58,7 +58,7 @@ export default function Footer() {
             {/* Decorative gradient blobs */}
             <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className="absolute -bottom-20 -left-20 h-64 w-64 rounded-full bg-emerald-500/5 blur-3xl dark:bg-emerald-500/10" />
-                <div className="absolute -bottom-20 -right-20 h-64 w-64 rounded-full bg-purple-500/5 blur-3xl dark:bg-purple-500/10" />
+                <div className="absolute -right-20 -bottom-20 h-64 w-64 rounded-full bg-purple-500/5 blur-3xl dark:bg-purple-500/10" />
             </div>
 
             <div className="relative z-10 mx-auto max-w-6xl px-4 py-8 md:px-6">
@@ -81,7 +81,7 @@ export default function Footer() {
 
                     {/* Quick Links */}
                     <nav className="md:col-span-2">
-                        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                        <h3 className="mb-3 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
                             Quick Links
                         </h3>
                         <ul className="space-y-2">
@@ -105,7 +105,7 @@ export default function Footer() {
 
                     {/* Resources */}
                     <nav className="md:col-span-2">
-                        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                        <h3 className="mb-3 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
                             Resources
                         </h3>
                         <ul className="space-y-2">
@@ -127,7 +127,7 @@ export default function Footer() {
 
                     {/* Connect Section */}
                     <div className="md:col-span-3">
-                        <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                        <h3 className="mb-3 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
                             Connect With Us
                         </h3>
                         <div className="mb-4 flex items-center gap-2">
@@ -158,7 +158,7 @@ export default function Footer() {
                 </div>
 
                 {/* Bottom Bar */}
-                <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-slate-200/50 pt-6 text-xs text-slate-500 dark:border-slate-800/50 dark:text-slate-500 md:flex-row">
+                <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-slate-200/50 pt-6 text-xs text-slate-500 md:flex-row dark:border-slate-800/50 dark:text-slate-500">
                     <p>© 2026 SahiDawa. Open Source under MIT License.</p>
                     <p className="flex items-center gap-1.5">
                         Built with

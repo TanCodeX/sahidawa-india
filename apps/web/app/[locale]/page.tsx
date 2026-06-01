@@ -22,7 +22,7 @@ import { useTranslations } from "next-intl";
 import SearchBar from "./components/SearchBar";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { EmptyState } from "@/components/ui/EmptyState";
-import SafetyStatsBanner from "@/components/SafetyStatsBanner"
+import SafetyStatsBanner from "@/components/SafetyStatsBanner";
 
 function formatRelativeTime(dateString: string | null): string {
     if (!dateString) return "Recent";
