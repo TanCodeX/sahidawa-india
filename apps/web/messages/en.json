@@ -574,6 +574,29 @@
             "decision": "Decision"
         }
     },
+    "AdminAnalytics": {
+        "title": "Impact Analytics Dashboard",
+        "subtitle": "Community engagement metrics and growth trends",
+        "metrics": {
+            "totalMedicines": "Total Medicines",
+            "totalReports": "Total Reports",
+            "resolved": "Resolved",
+            "districtsCovered": "Districts Covered"
+        },
+        "charts": {
+            "monthlyGrowth": "Monthly Growth Trend",
+            "reportStatus": "Report Status Distribution",
+            "topDistricts": "Top Districts by Reports",
+            "recentActivity": "Recent Activity"
+        },
+        "overview": {
+            "title": "Platform Overview",
+            "avgReportsPerDay": "Avg Reports/Day",
+            "resolutionRate": "Resolution Rate",
+            "thisWeekReports": "This Week Reports",
+            "thisWeekMedicines": "This Week Medicines"
+        }
+    },
     "vaccineHub": {
         "pageHeaderTitle": "Vaccine Hub",
         "pageHeaderSubtitle": "Immunization Tracker",

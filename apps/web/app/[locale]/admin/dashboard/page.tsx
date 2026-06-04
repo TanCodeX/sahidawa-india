@@ -17,6 +17,7 @@ import {
     Clock,
     Pill,
     FileText,
+    Activity,
 } from "lucide-react";
 import { LiveMessage } from "@/components/ui/LiveMessage";
 import { ADMIN_API_BASE } from "@/lib/adminApi";
@@ -263,6 +264,13 @@ export default function AdminDashboard() {
                         active={tab === "logs"}
                         onClick={() => setTab("logs")}
                     />
+                    <Link
+                        href="/admin/analytics"
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-slate-500 transition-all hover:bg-slate-50 hover:text-slate-800"
+                    >
+                        <Activity className="h-4 w-4 text-slate-400" />
+                        Analytics
+                    </Link>
                 </nav>
                 <p className="px-1 text-xs text-slate-400">{t("version")}</p>
             </aside>
