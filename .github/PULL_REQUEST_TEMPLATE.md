@@ -13,6 +13,14 @@
 
 ## 📸 Proof of Work (Screenshots / Logs)
 
+> [!IMPORTANT]
+> **No Pull Request will be merged without proof of testing!**
+>
+> - **Frontend/UI changes:** You MUST attach screenshots or screen recordings (GIFs/Videos) showing the UI changes.
+> - **Backend/API/ML changes:** You MUST attach terminal logs, curl/Postman outputs, or test run outputs proving the changes work.
+>
+> _Please drag & drop your screenshots/GIFs here, or paste terminal/console logs below:_
+
 ## 🏷️ PR Type
 
 - [ ] 🐛 `type: bug`
