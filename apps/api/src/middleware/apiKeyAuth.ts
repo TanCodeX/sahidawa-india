@@ -21,7 +21,9 @@ export const requireApiKey = async (req: ApiKeyRequest, res: Response, next: Nex
         return;
     }
 
-    const keyHash = crypto.createHash("sha256").update(apiKey).digest("hex");
+    const keyHash = crypto
+        .pbkdf2Sync(apiKey, "sahidawa-api-key-v1", 100000, 64, "sha512")
+        .toString("hex");
 
     try {
         const { data, error } = await supabase
