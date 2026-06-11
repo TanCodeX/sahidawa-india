@@ -1,5 +1,6 @@
 module.exports = {
     testEnvironment: "node",
+    setupFiles: ["<rootDir>/jest.env.cjs"],
     roots: ["<rootDir>/tests"],
     moduleNameMapper: {
         "^leaflet$": "<rootDir>/tests/mocks/leaflet.ts",
