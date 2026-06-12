@@ -35,7 +35,7 @@ export async function lookupDrugByBatch(batchNumber: string): Promise<any | null
             logger.error({
                 message: "Database lookup failed in drugLookup service",
                 error,
-                batchNumber,
+                batchNumber: batchNumber.replace(/[\r\n]/g, ""),
             });
             throw error;
         }
@@ -49,7 +49,10 @@ export async function lookupDrugByBatch(batchNumber: string): Promise<any | null
 
         return data;
     } catch (err) {
-        logger.error(`Unexpected error in lookupDrugByBatch for batch: ${batchNumber}`, err);
+        logger.error(
+            `Unexpected error in lookupDrugByBatch for batch: ${batchNumber.replace(/[\r\n]/g, "")}`,
+            err
+        );
         throw err;
     }
 }

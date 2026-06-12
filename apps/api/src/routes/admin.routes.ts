@@ -30,13 +30,26 @@ router.patch("/reports/:id/status", requireAuth, requireRole("admin"), updateRep
 
 router.post("/medicines", requireAuth, requireRole("admin"), createMedicine);
 
+import { z } from "zod";
+
+const InvalidateCacheSchema = z.object({
+    drugIds: z.array(z.string()).optional().default([]),
+    batchNumbers: z.array(z.string()).optional().default([]),
+});
+
 router.post(
     "/cache/invalidate",
     requireAuth,
     requireRole("admin", "moderator"),
     async (req: Request, res: Response) => {
         try {
-            const { drugIds = [], batchNumbers = [] } = req.body;
+            const parsed = InvalidateCacheSchema.safeParse(req.body);
+            if (!parsed.success) {
+                res.status(400).json({ success: false, error: "Invalid payload format" });
+                return;
+            }
+
+            const { drugIds, batchNumbers } = parsed.data;
 
             if (drugIds.length > 0) {
                 await invalidateDrugCache(drugIds);
@@ -44,7 +57,7 @@ router.post(
 
             if (batchNumbers.length > 0 && redisClient.isOpen) {
                 const keys = batchNumbers.map(
-                    (batch: string) => `${KEY_PREFIXES.DRUG_CACHE}${batch}`
+                    (batch: string) => `${KEY_PREFIXES.DRUG_CACHE}${batch.replace(/[\r\n]/g, "")}`
                 );
                 await redisClient.del(keys);
             }
