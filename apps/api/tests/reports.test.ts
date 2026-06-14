@@ -28,6 +28,7 @@ jest.mock("../src/services/reportValidation.service", () => ({
     computeReportHash: jest
         .fn()
         .mockReturnValue("abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"),
+    anonymizeIp: jest.fn().mockReturnValue("127.0.0.1"),
 }));
 
 jest.mock("../src/middleware/auth", () => {
