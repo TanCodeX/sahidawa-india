@@ -136,6 +136,7 @@ router.post("/", requireAuth, async (req: AuthenticatedRequest, res: Response, n
                 location: data.lat !== undefined && data.lng !== undefined ? `POINT(${data.lng} ${data.lat})` : null,
                 is_verified: false,
                 status: "pending",
+                created_by: data.created_by,
             })
             .select()
             .single();
