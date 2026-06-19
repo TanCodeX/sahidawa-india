@@ -152,7 +152,7 @@ jobs:
                       core.warning(`Failed to add open-for-all label: ${labelErr.message}`);
                     }
                     
-                    // CLEAR PREVIOUS BOT COMMENTS to make issue look clean and 'new'
+                    // CLEAR PREVIOUS COMMENTS to make issue look clean and 'new'
                     const assignmentPhrases = [
                       "You've been assigned",
                       "Reminder: @",
@@ -162,20 +162,29 @@ jobs:
                       "automatically unassigned"
                     ];
                     
-                    const botComments = comments.filter(c => {
-                      if (!c.user || c.user.login !== 'github-actions[bot]') return false;
-                      const body = c.body || '';
-                      return body.includes(`@${assignee}`) || assignmentPhrases.some(p => body.includes(p));
+                    const commentsToDelete = comments.filter(c => {
+                      const isBot = c.user && c.user.login === 'github-actions[bot]';
+                      const cBody = c.body || '';
+                      
+                      if (isBot) {
+                        return cBody.includes(`@${assignee}`) || assignmentPhrases.some(p => cBody.includes(p));
+                      } else if (c.user && c.user.login === assignee) {
+                        const cCleaned = cBody.replace(/\r?\n|\r/g, ' ').replace(/\/assign|please assign me|assign me/ig, '').trim();
+                        if (cCleaned.length < 30 && cBody.match(/(\/assign|assign me)/i)) {
+                          return true;
+                        }
+                      }
+                      return false;
                     });
                     
-                    for (const bc of botComments) {
+                    for (const comment of commentsToDelete) {
                       try {
                         await github.rest.issues.deleteComment({
-                          owner, repo, comment_id: bc.id
+                          owner, repo, comment_id: comment.id
                         });
-                        core.info(`Deleted old bot comment ${bc.id} to clean up the thread`);
+                        core.info(`Deleted old comment ${comment.id} to clean up the thread`);
                       } catch (delErr) {
-                        core.warning(`Failed to delete bot comment ${bc.id}: ${delErr.message}`);
+                        core.warning(`Failed to delete comment ${comment.id}: ${delErr.message}`);
                       }
                     }
 

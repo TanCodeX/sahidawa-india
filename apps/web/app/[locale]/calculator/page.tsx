@@ -283,7 +283,10 @@ function CalculatorPageContent() {
                                         {translate("quantityLabel")}
                                     </label>
                                     <span className="text-base font-extrabold text-emerald-600 dark:text-emerald-400">
-                                        {quantity} {quantity === 1 ? translate("packUnit") : translate("packsUnit")}
+                                        {quantity}{" "}
+                                        {quantity === 1
+                                            ? translate("packUnit")
+                                            : translate("packsUnit")}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-4">
@@ -423,7 +426,7 @@ function CalculatorPageContent() {
                                     <div className="mt-4 border-t border-emerald-500/10 pt-3">
                                         <div className="mb-1 flex items-baseline justify-between">
                                             <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                                                {t("genericPriceLabel")}
+                                                {translate("genericPriceLabel")}
                                             </span>
                                             <span className="text-lg font-black text-emerald-700 dark:text-emerald-400">
                                                 ₹{janAushadhiPrice.toFixed(2)}
