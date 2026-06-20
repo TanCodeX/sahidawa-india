@@ -1,38 +1,17 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useCallback, useState, useEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { PageHeader } from "../components/PageHeader";
 import { supabase } from "@/lib/supabase";
-import {
-    Calendar,
-    Trash2,
-    Package,
-    XCircle,
-    AlertTriangle,
-    CheckCircle2,
-    Download,
-    Upload,
-    Search,
-    Pencil,
-    X,
-    ScanLine,
-    Bell,
-    BellOff,
-} from "lucide-react";
-import { BarcodeScanner } from "@/components/scanner/BarcodeScanner";
+import { AlertTriangle, CheckCircle2, XCircle } from "lucide-react";
 import { verifyMedicine } from "@/lib/api";
 import { toast } from "sonner";
-
-interface Medicine {
-    id: string;
-    name: string;
-    expiryDate: string;
-    batchNumber?: string;
-    notes?: string;
-}
-
-type FilterStatus = "all" | "expired" | "expiringSoon" | "safe";
-type SortOption = "expirySoonest" | "expiryLatest" | "alpha";
+import { ExpiryForm } from "./components/ExpiryForm";
+import { ExpiryModal } from "./components/ExpiryModal";
+import { ExpirySummary } from "./components/ExpirySummary";
+import { ExpiryTable } from "./components/ExpiryTable";
+import { formatDateInputValue, isValidDateString, parseLocalDate } from "./components/dateUtils";
+import type { FilterStatus, Medicine, SortOption } from "./components/types";
 
 export default function ExpiryTrackerPage() {
     const t = useTranslations("ExpiryTracker");
@@ -298,48 +277,77 @@ export default function ExpiryTrackerPage() {
         }
     };
 
-    const handleBarcodeScan = async (scannedText: string) => {
-        setIsVerifying(true);
+    const handleScannerClose = useCallback(() => {
+        setIsScannerOpen(false);
         setApiError(null);
-        try {
-            const result = await verifyMedicine(scannedText);
-            if (result.verified) {
-                setName(result.medicine.brand_name || "");
-                setBatchNumber(result.medicine.batch_number || scannedText);
-                if (result.medicine.expiry_date) {
-                    try {
-                        const d = new Date(result.medicine.expiry_date);
-                        if (!isNaN(d.getTime())) {
-                            const formattedDate = d.toISOString().split("T")[0];
-                            setExpiryDate(formattedDate);
-                            setDateError("");
+    }, []);
 
-                            const selected = new Date(d);
-                            const today = new Date();
-                            today.setHours(0, 0, 0, 0);
-                            selected.setHours(0, 0, 0, 0);
-                            setIsExpired(selected < today);
-                        }
-                    } catch {
-                        // ignore
+    const updateExpiryState = useCallback((dateInputValue: string) => {
+        setExpiryDate(dateInputValue);
+        setDateError("");
+
+        const selected = parseLocalDate(dateInputValue);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        selected.setHours(0, 0, 0, 0);
+        setIsExpired(selected < today);
+    }, []);
+
+    const handleBarcodeScan = useCallback(
+        async (scannedText: string) => {
+            setIsVerifying(true);
+            setApiError(null);
+            try {
+                const result = await verifyMedicine(scannedText);
+                if (result.verified) {
+                    const medicine = result.medicine;
+                    const scannedName = medicine.brand_name || medicine.generic_name;
+                    if (scannedName) {
+                        setName(scannedName);
                     }
+                    setBatchNumber(medicine.batch_number || scannedText);
+
+                    const scannedExpiryDate = formatDateInputValue(medicine.expiry_date);
+                    if (scannedExpiryDate) {
+                        updateExpiryState(scannedExpiryDate);
+                    }
+
+                    const scannedDetails = [
+                        medicine.generic_name ? `Generic: ${medicine.generic_name}` : null,
+                        medicine.manufacturer ? `Manufacturer: ${medicine.manufacturer}` : null,
+                        medicine.cdsco_approval_status
+                            ? `CDSCO status: ${medicine.cdsco_approval_status}`
+                            : null,
+                    ]
+                        .filter(Boolean)
+                        .join("\n");
+
+                    if (scannedDetails) {
+                        setNotes((currentNotes) =>
+                            currentNotes.trim() ? currentNotes : scannedDetails
+                        );
+                    }
+
+                    toast.success("Medicine details auto-filled!");
+                    setIsScannerOpen(false);
+                } else {
+                    setBatchNumber(scannedText);
+                    toast.warning("Medicine not found in database. Batch number filled.");
+                    setIsScannerOpen(false);
                 }
-                toast.success("Medicine details auto-filled!");
-                setIsScannerOpen(false);
-            } else {
+            } catch (error: unknown) {
+                console.error("Scan error:", error);
+                const message =
+                    error instanceof Error ? error.message : "Failed to fetch medicine details.";
                 setBatchNumber(scannedText);
-                toast.warning("Medicine not found in database. Batch number filled.");
-                setIsScannerOpen(false);
+                setApiError(message);
+                toast.error("Failed to fetch medicine details. Batch number filled.");
+            } finally {
+                setIsVerifying(false);
             }
-        } catch (error: any) {
-            console.error("Scan error:", error);
-            setBatchNumber(scannedText);
-            setApiError(error.message || "Failed to fetch medicine details.");
-            toast.error("Failed to fetch medicine details. Batch number filled.");
-        } finally {
-            setIsVerifying(false);
-        }
-    };
+        },
+        [updateExpiryState]
+    );
 
     useEffect(() => {
         const loadData = async () => {
@@ -372,9 +380,13 @@ export default function ExpiryTrackerPage() {
                     const saved = localStorage.getItem("sahidawa_expiry_tracker");
 
                     if (saved) {
-                        const parsed = JSON.parse(saved);
-                        setMedicines(parsed);
-                        checkAndTriggerLocalNotifications(parsed);
+                        try {
+                            const parsed = JSON.parse(saved);
+                            setMedicines(parsed);
+                            checkAndTriggerLocalNotifications(parsed);
+                        } catch (parseError) {
+                            console.error("Failed to parse local expiry tracker data:", parseError);
+                        }
                     }
                 }
             } catch (e) {
@@ -494,7 +506,29 @@ export default function ExpiryTrackerPage() {
 
     const handleDelete = async (id: string) => {
         if (userId) {
+            const itemToDelete = medicines.find((med) => med.id === id);
+
             await supabase.from("expiry_tracker_items").delete().eq("id", id);
+
+            // Clean up corresponding entry in localStorage if it exists
+            const saved = localStorage.getItem("sahidawa_expiry_tracker");
+            if (saved) {
+                try {
+                    const localMeds: Medicine[] = JSON.parse(saved);
+                    const updatedLocal = localMeds.filter((med) => {
+                        const isMatch =
+                            med.id === id ||
+                            (itemToDelete &&
+                                med.name === itemToDelete.name &&
+                                med.expiryDate === itemToDelete.expiryDate &&
+                                med.batchNumber === itemToDelete.batchNumber);
+                        return !isMatch;
+                    });
+                    localStorage.setItem("sahidawa_expiry_tracker", JSON.stringify(updatedLocal));
+                } catch (e) {
+                    console.error("Failed to clean up localStorage on delete:", e);
+                }
+            }
 
             setMedicines(medicines.filter((med) => med.id !== id));
         } else {
@@ -560,22 +594,6 @@ export default function ExpiryTrackerPage() {
         setSelectedIds(new Set());
     };
 
-    const parseLocalDate = (dateStr: string) => {
-        const [year, month, day] = dateStr.split("-").map(Number);
-        return new Date(year, month - 1, day);
-    };
-
-    const isValidDateString = (dateStr: string): boolean => {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
-        const [year, month, day] = dateStr.split("-").map(Number);
-        if (month < 1 || month > 12) return false;
-        if (day < 1 || day > 31) return false;
-        const date = new Date(year, month - 1, day);
-        return (
-            date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
-        );
-    };
-
     const getDiffDays = (dateStr: string) => {
         const expiry = parseLocalDate(dateStr);
         const today = new Date();
@@ -618,13 +636,76 @@ export default function ExpiryTrackerPage() {
         URL.revokeObjectURL(url);
     };
 
+    const handleExportPDF = async () => {
+        if (processedMedicines.length === 0) return;
+        const { jsPDF } = await import("jspdf");
+        const doc = new jsPDF();
+
+        doc.setFontSize(16);
+        doc.text("SahiDawa — Medicine Expiry Tracker", 14, 18);
+        doc.setFontSize(10);
+        doc.text(`${t("generatedOn")}: ${new Date().toLocaleDateString()}`, 14, 26);
+
+        const headers = ["Medicine Name", "Expiry Date", "Batch No.", "Status"];
+        const rows = processedMedicines.map((med) => [
+            med.name,
+            parseLocalDate(med.expiryDate).toLocaleDateString(),
+            med.batchNumber ?? "—",
+            getExpiryStatus(med.expiryDate).text,
+        ]);
+
+        try {
+            const autoTable = (await import("jspdf-autotable")).default;
+            autoTable(doc, {
+                head: [headers],
+                body: rows,
+                startY: 32,
+                styles: { fontSize: 9, cellPadding: 4 },
+                headStyles: { fillColor: [16, 185, 129], textColor: 255, fontStyle: "bold" },
+                alternateRowStyles: { fillColor: [245, 250, 248] },
+                columnStyles: { 0: { cellWidth: 70 } },
+            });
+        } catch {
+            let y = 36;
+            const colWidths = [70, 40, 35, 40];
+            const colX = [14, 84, 124, 159];
+
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            headers.forEach((h, i) => doc.text(h, colX[i], y));
+            y += 2;
+            doc.line(14, y, 196, y);
+            y += 5;
+
+            doc.setFont("helvetica", "normal");
+            rows.forEach((row) => {
+                if (y > 275) {
+                    doc.addPage();
+                    y = 20;
+                }
+                row.forEach((cell, i) => {
+                    const text = doc.splitTextToSize(String(cell), colWidths[i] - 2);
+                    doc.text(text, colX[i], y);
+                });
+                y += 8;
+            });
+        }
+
+        doc.save("sahidawa_expiry_tracker.pdf");
+        toast.success(t("pdfExportSuccess") || "PDF Exported Successfully!");
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
     // Import
     const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
         setImportError(null);
         const file = e.target.files?.[0];
         if (!file) return;
         const reader = new FileReader();
-        reader.onload = (event) => {
+        reader.onload = async (event) => {
             try {
                 const parsed = JSON.parse(event.target?.result as string);
                 if (!Array.isArray(parsed)) throw new Error("Not an array");
@@ -639,17 +720,54 @@ export default function ExpiryTrackerPage() {
                     setImportError(t("importDateError"));
                     return;
                 }
-                const existingIds = new Set(medicines.map((m) => m.id));
-                const merged = [...medicines, ...valid.filter((m) => !existingIds.has(m.id))];
-                saveToLocalStorage(merged);
 
-                // Schedule notifications for newly imported medicines
-                valid.forEach((m) => {
-                    if (!existingIds.has(m.id)) {
-                        scheduleNotificationsForMedicine(m);
+                const existingIds = new Set(medicines.map((m) => m.id));
+                const newItems = valid.filter((m) => !existingIds.has(m.id));
+                if (newItems.length === 0) return;
+
+                if (userId) {
+                    const rowsToInsert = newItems.map((item) => ({
+                        user_id: userId,
+                        brand_name: item.name,
+                        batch_number: item.batchNumber || null,
+                        expiry_date: item.expiryDate,
+                    }));
+
+                    const { data, error } = await supabase
+                        .from("expiry_tracker_items")
+                        .insert(rowsToInsert)
+                        .select();
+
+                    if (!error && data) {
+                        const mapped = data.map((item) => ({
+                            id: item.id,
+                            name: item.brand_name,
+                            expiryDate: item.expiry_date,
+                            batchNumber: item.batch_number ?? "",
+                            notes: item.notes ?? "",
+                        }));
+                        const updatedList = [...medicines, ...mapped];
+                        setMedicines(updatedList);
+
+                        // Schedule notifications for newly imported medicines
+                        mapped.forEach((m) => {
+                            scheduleNotificationsForMedicine(m);
+                        });
+                        checkAndTriggerLocalNotifications(updatedList);
+                    } else if (error) {
+                        console.error("Failed to import medicines to Supabase:", error.message);
+                        setImportError(t("importError"));
                     }
-                });
-                checkAndTriggerLocalNotifications(merged);
+                } else {
+                    const merged = [...medicines, ...newItems];
+                    saveToLocalStorage(merged);
+
+                    // Schedule notifications for newly imported medicines
+                    newItems.forEach((m) => {
+                        scheduleNotificationsForMedicine(m);
+                    });
+                    checkAndTriggerLocalNotifications(merged);
+                }
             } catch {
                 setImportError(t("importError"));
             }
@@ -686,348 +804,73 @@ export default function ExpiryTrackerPage() {
 
             <main className="mx-auto max-w-6xl p-6 pt-32 md:pt-40">
                 <div className="mt-4 grid grid-cols-1 gap-8 md:grid-cols-3">
-                    {/* Sidebar */}
-                    <div className="h-fit rounded-2xl border border-(--color-border-muted) bg-(--color-surface-muted) p-6 shadow-sm md:sticky md:top-32 md:col-span-1">
-                        {typeof window !== "undefined" &&
-                            "Notification" in window &&
-                            notificationPermission !== "granted" && (
-                                <div className="mb-6 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm">
-                                    <h3 className="flex items-center gap-1.5 text-[11px] font-bold tracking-tight text-amber-600 uppercase dark:text-amber-400">
-                                        <BellOff size={14} /> Enable Expiry Alerts
-                                    </h3>
-                                    <p className="mt-2 text-xs leading-relaxed text-(--color-text-secondary)">
-                                        Get notified 7 days and 1 day before your medicines expire.
-                                    </p>
-                                    <button
-                                        type="button"
-                                        onClick={requestNotificationPermission}
-                                        className="mt-3 w-full rounded-lg bg-amber-600 py-2 text-xs font-bold text-white shadow transition hover:bg-amber-700 active:scale-95"
-                                    >
-                                        Enable Notifications
-                                    </button>
-                                </div>
-                            )}
-                        <h2 className="mb-4 text-lg font-bold tracking-tight uppercase">
-                            {editingId ? t("editMedicine") : t("addMedicine")}
-                        </h2>
-                        <form onSubmit={handleSubmit} className="space-y-4">
-                            <div>
-                                <label className="mb-1 block text-xs font-bold tracking-wider uppercase opacity-60">
-                                    {t("name")}
-                                </label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="w-full rounded-xl border border-(--color-border-muted) bg-(--color-surface-page) p-3 text-(--color-text-primary) transition outline-none focus:ring-2 focus:ring-emerald-500"
-                                    placeholder={t("namePlaceholder")}
-                                />
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-xs font-bold tracking-wider uppercase opacity-60">
-                                    {t("expiryDate")}
-                                </label>
+                    <ExpiryForm
+                        t={t}
+                        editingId={editingId}
+                        name={name}
+                        expiryDate={expiryDate}
+                        batchNumber={batchNumber}
+                        notes={notes}
+                        dateError={dateError}
+                        isExpired={isExpired}
+                        importError={importError}
+                        medicinesCount={medicines.length}
+                        fileInputRef={fileInputRef}
+                        notificationPermission={notificationPermission}
+                        onNameChange={setName}
+                        onExpiryDateChange={setExpiryDate}
+                        onBatchNumberChange={setBatchNumber}
+                        onNotesChange={setNotes}
+                        onExpiredChange={setIsExpired}
+                        onDateErrorChange={setDateError}
+                        onSubmit={handleSubmit}
+                        onCancelEdit={cancelEdit}
+                        onOpenScanner={() => setIsScannerOpen(true)}
+                        onExportPDF={handleExportPDF}
+                        onPrint={handlePrint}
+                        onExport={handleExport}
+                        onImport={handleImport}
+                        onRequestNotificationPermission={requestNotificationPermission}
+                    />
 
-                                <input
-                                    type="date"
-                                    required
-                                    value={expiryDate}
-                                    onChange={(e) => {
-                                        const value = e.target.value;
-
-                                        setExpiryDate(value);
-                                        setDateError("");
-
-                                        if (value) {
-                                            const selected = parseLocalDate(value);
-                                            const today = new Date();
-
-                                            today.setHours(0, 0, 0, 0);
-                                            selected.setHours(0, 0, 0, 0);
-
-                                            setIsExpired(selected < today);
-                                        } else {
-                                            setIsExpired(false);
-                                        }
-                                    }}
-                                    className="w-full rounded-xl border border-(--color-border-muted) bg-(--color-surface-page) p-3 text-(--color-text-primary) [color-scheme:light] transition outline-none focus:ring-2 focus:ring-emerald-500 dark:[color-scheme:dark]"
-                                />
-
-                                {isExpired && (
-                                    <p className="mt-1 text-sm text-amber-600">
-                                        Warning: This medicine has already expired.
-                                    </p>
-                                )}
-
-                                {dateError && (
-                                    <p className="mt-1 text-sm text-red-600">{dateError}</p>
-                                )}
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-xs font-bold tracking-wider uppercase opacity-60">
-                                    {t("batchNumber")}
-                                </label>
-                                <input
-                                    type="text"
-                                    value={batchNumber}
-                                    onChange={(e) => setBatchNumber(e.target.value)}
-                                    className="w-full rounded-xl border border-(--color-border-muted) bg-(--color-surface-page) p-3 text-(--color-text-primary) transition outline-none focus:ring-2 focus:ring-emerald-500"
-                                    placeholder={t("batchPlaceholder")}
-                                />
-                            </div>
-                            <div>
-                                <label className="mb-1 block text-xs font-bold tracking-wider uppercase opacity-60">
-                                    {t("notesLabel")}
-                                </label>
-                                <textarea
-                                    value={notes}
-                                    onChange={(e) => setNotes(e.target.value)}
-                                    rows={3}
-                                    className="w-full resize-none rounded-xl border border-(--color-border-muted) bg-(--color-surface-page) p-3 text-(--color-text-primary) transition outline-none focus:ring-2 focus:ring-emerald-500"
-                                    placeholder={t("notesPlaceholder")}
-                                />
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => setIsScannerOpen(true)}
-                                className="flex w-full items-center justify-center gap-2 rounded-xl border border-emerald-600/30 bg-emerald-600/10 py-3 text-sm font-semibold text-emerald-600 transition hover:bg-emerald-600/20 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-400"
-                            >
-                                <ScanLine size={16} />
-                                Scan Barcode
-                            </button>
-                            <button
-                                type="submit"
-                                className="w-full rounded-xl bg-emerald-600 py-3 font-bold text-white shadow-lg shadow-emerald-900/20 transition-all hover:bg-emerald-700 active:scale-95"
-                            >
-                                {editingId ? t("saveChanges") : t("addToTracker")}
-                            </button>
-                            {editingId && (
-                                <button
-                                    type="button"
-                                    onClick={cancelEdit}
-                                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-(--color-border-muted) py-3 font-bold transition hover:bg-(--color-surface-page)"
-                                >
-                                    <X size={18} /> {t("cancel")}
-                                </button>
-                            )}
-                        </form>
-
-                        {/* Import / Export */}
-                        <div className="mt-6 flex flex-col gap-2">
-                            <button
-                                onClick={handleExport}
-                                disabled={medicines.length === 0}
-                                className="flex items-center justify-center gap-2 rounded-xl border border-(--color-border-muted) py-2.5 text-sm font-semibold transition hover:bg-(--color-surface-page) disabled:opacity-40"
-                            >
-                                <Download size={15} /> {t("exportBackup")}
-                            </button>
-                            <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center justify-center gap-2 rounded-xl border border-(--color-border-muted) py-2.5 text-sm font-semibold transition hover:bg-(--color-surface-page)"
-                            >
-                                <Upload size={15} /> {t("importBackup")}
-                            </button>
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept=".json"
-                                onChange={handleImport}
-                                className="hidden"
-                            />
-                            {importError && <p className="text-xs text-red-500">{importError}</p>}
-                        </div>
-                        {typeof window !== "undefined" &&
-                            "Notification" in window &&
-                            notificationPermission === "granted" && (
-                                <div className="mt-4 flex items-center justify-center gap-1.5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 py-2 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
-                                    <Bell size={13} /> Expiry Alerts Enabled (7d & 1d)
-                                </div>
-                            )}
-                    </div>
-
-                    {/* Main list */}
                     <div className="space-y-4 md:col-span-2">
-                        <div className="flex items-center justify-between px-2">
-                            <h2 className="text-xl font-bold">{t("trackedMedicines")}</h2>
-                            <div className="flex items-center gap-2">
-                                {selectedIds.size > 0 && (
-                                    <button
-                                        onClick={handleBulkDelete}
-                                        className="flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-4 py-1.5 text-xs font-bold text-red-500 transition hover:bg-red-500/20"
-                                    >
-                                        <Trash2 size={14} /> {t("deleteSelected")} (
-                                        {selectedIds.size})
-                                    </button>
-                                )}
-                                <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-500">
-                                    {t("total")}: {medicines.length}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Search + Sort */}
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <div className="relative flex-1">
-                                <Search
-                                    size={15}
-                                    className="absolute top-1/2 left-3 -translate-y-1/2 opacity-40"
-                                />
-                                <input
-                                    type="text"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder={t("searchPlaceholder")}
-                                    className="w-full rounded-xl border border-(--color-border-muted) bg-(--color-surface-muted) py-2.5 pr-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
-                                />
-                            </div>
-                            <select
-                                value={sortBy}
-                                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                                className="rounded-xl border border-(--color-border-muted) bg-(--color-surface-muted) px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-emerald-500"
-                            >
-                                <option value="expirySoonest">{t("sortExpirySoonest")}</option>
-                                <option value="expiryLatest">{t("sortExpiryLatest")}</option>
-                                <option value="alpha">{t("sortAlpha")}</option>
-                            </select>
-                        </div>
-
-                        {/* Filter chips */}
-                        <div className="flex flex-wrap gap-2">
-                            {filterOptions.map((f) => (
-                                <button
-                                    key={f.key}
-                                    onClick={() => setFilterStatus(f.key)}
-                                    className={`rounded-full border px-4 py-1.5 text-xs font-bold transition-all ${
-                                        filterStatus === f.key
-                                            ? "border-emerald-600 bg-emerald-600 text-white"
-                                            : "border-(--color-border-muted) text-(--color-text-secondary) hover:border-emerald-500"
-                                    }`}
-                                >
-                                    {f.label}
-                                </button>
-                            ))}
-                        </div>
-
-                        {!isLoaded ? (
-                            <div className="py-20 text-center opacity-50">
-                                <p className="animate-pulse">{t("loading")}</p>
-                            </div>
-                        ) : processedMedicines.length === 0 ? (
-                            <div className="rounded-3xl border-2 border-dashed border-(--color-border-muted) bg-(--color-surface-muted) py-20 text-center opacity-50">
-                                <Package size={48} className="mx-auto mb-2 opacity-50" />
-                                <p>{t("noMedicines")}</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 gap-4">
-                                {processedMedicines.map((med) => {
-                                    const status = getExpiryStatus(med.expiryDate);
-                                    return (
-                                        <div
-                                            key={med.id}
-                                            className="flex items-center justify-between rounded-2xl border border-(--color-border-muted) bg-(--color-surface-muted) p-5 shadow-sm transition-all hover:border-emerald-500/50"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedIds.has(med.id)}
-                                                    onChange={() => toggleSelect(med.id)}
-                                                    aria-label={t("selectMedicine", {
-                                                        name: med.name,
-                                                    })}
-                                                    className="h-4 w-4 cursor-pointer accent-emerald-600"
-                                                />
-                                                <div className="space-y-1">
-                                                    <h3 className="text-lg leading-tight font-bold">
-                                                        {med.name}
-                                                    </h3>
-                                                    <div className="flex items-center gap-3 text-sm opacity-70">
-                                                        <span className="flex items-center gap-1">
-                                                            <Calendar size={14} />{" "}
-                                                            {parseLocalDate(
-                                                                med.expiryDate
-                                                            ).toLocaleDateString()}
-                                                        </span>
-                                                        {med.batchNumber && (
-                                                            <span className="flex items-center gap-1">
-                                                                <Package size={14} />{" "}
-                                                                {med.batchNumber}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    {med.notes && (
-                                                        <p className="mt-2 border-l-2 border-emerald-500/30 pl-2 text-sm italic opacity-60">
-                                                            {med.notes}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-4">
-                                                <span
-                                                    className={`flex items-center gap-1.5 rounded-full border px-4 py-1.5 text-[11px] font-bold ${status.color}`}
-                                                >
-                                                    {status.icon} {status.text}
-                                                </span>
-                                                <button
-                                                    onClick={() => startEdit(med)}
-                                                    className="rounded-full p-2 transition-colors hover:bg-emerald-500/10"
-                                                >
-                                                    <Pencil
-                                                        size={18}
-                                                        className="text-emerald-500"
-                                                    />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(med.id)}
-                                                    className="rounded-full p-2 transition-colors hover:bg-red-500/10"
-                                                >
-                                                    <Trash2 size={18} className="text-red-500" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
+                        <ExpirySummary
+                            t={t}
+                            totalMedicines={medicines.length}
+                            selectedCount={selectedIds.size}
+                            searchQuery={searchQuery}
+                            sortBy={sortBy}
+                            filterStatus={filterStatus}
+                            filterOptions={filterOptions}
+                            onBulkDelete={handleBulkDelete}
+                            onSearchChange={setSearchQuery}
+                            onSortChange={setSortBy}
+                            onFilterChange={setFilterStatus}
+                        />
+                        <ExpiryTable
+                            t={t}
+                            medicines={processedMedicines}
+                            isLoaded={isLoaded}
+                            selectedIds={selectedIds}
+                            getExpiryStatus={getExpiryStatus}
+                            onToggleSelect={toggleSelect}
+                            onStartEdit={startEdit}
+                            onDelete={handleDelete}
+                        />
                     </div>
                 </div>
             </main>
 
-            {isScannerOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-                    <div className="relative flex h-[80vh] w-full max-w-2xl flex-col rounded-3xl border border-(--color-border-muted) bg-(--color-surface-page) p-6 shadow-2xl dark:bg-slate-900">
-                        <div className="mb-4 flex items-center justify-between">
-                            <h3 className="text-xl font-bold text-(--color-text-primary)">
-                                Scan Medicine Barcode
-                            </h3>
-                            <button
-                                onClick={() => {
-                                    setIsScannerOpen(false);
-                                    setApiError(null);
-                                }}
-                                className="rounded-full p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                            >
-                                <span className="sr-only">Close</span>
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className="relative flex-1 overflow-hidden rounded-2xl bg-black">
-                            <BarcodeScanner
-                                onScan={handleBarcodeScan}
-                                debounceMs={2500}
-                                isVerifying={isVerifying}
-                                apiError={apiError}
-                                onRetry={() => {
-                                    setApiError(null);
-                                }}
-                            />
-                        </div>
-                        <div className="mt-4 text-center text-sm text-(--color-text-secondary)">
-                            Align the medicine barcode within the camera view to scan.
-                        </div>
-                    </div>
-                </div>
-            )}
+            <ExpiryModal
+                isOpen={isScannerOpen}
+                isVerifying={isVerifying}
+                apiError={apiError}
+                onClose={handleScannerClose}
+                onScan={handleBarcodeScan}
+                onRetry={() => {
+                    setApiError(null);
+                }}
+            />
         </div>
     );
 }
