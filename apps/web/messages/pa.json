@@ -27,6 +27,9 @@
         "alerts_empty_title": "ਸਭ ਠੀਕ ਹੈ!",
         "alerts_empty_description": "ਇਸ ਵੇਲੇ ਕੋਈ ਸਰਗਰਮ ਨਿਯਮਕ ਚੇਤਾਵਨੀ ਨਹੀਂ ਹੈ। ਸੁਰੱਖਿਅਤ ਰਹੋ ਅਤੇ ਆਪਣੀਆਂ ਦਵਾਈਆਂ ਦੀ ਪੁਸ਼ਟੀ ਕਰੋ।",
         "view_full_alert_log": "ਪੂਰਾ ਚੇਤਾਵਨੀ ਲੌਗ ਵੇਖੋ",
+        "vaccine_title": "ਵੈਕਸੀਨ ਹੱਬ ਅਤੇ ਟੀਕਾਕਰਨ ਟਰੈਕਰ",
+        "vaccine_subtitle": "ਬਿਹਤਰ ਜਨਤਕ ਸਿਹਤ ਜਾਗਰੂਕਤਾ ਲਈ ਟੀਕਾਕਰਨ ਦੇ ਸਮਾਂ-ਸਾਰਣੀਆਂ, ਸੁਰੱਖਿਆ ਸੰਬੰਧੀ ਜਾਣਕਾਰੀ ਅਤੇ ਟੀਕਾਕਰਨ ਤੋਂ ਬਾਅਦ ਦੀ ਦੇਖਭਾਲ ਸੰਬੰਧੀ ਮਾਰਗਦਰਸ਼ਨ ਦੀ ਪੜਚੋਲ ਕਰੋ।",
+        "vaccine_open": "ਓਪਨ ਵੈਕਸੀਨ ਹੱਬ",
         "heroTitle": {
             "prefix": "ਤੁਹਾਡੀ ਸਿਹਤ, ",
             "highlight": "ਪ੍ਰਮਾਣਿਤ ਅਤੇ ਸੁਰੱਖਿਅਤ।"
@@ -485,7 +488,9 @@
         "errors": {
             "databaseNotConfigured": "ਇਸ ਵਾਤਾਵਰਣ ਲਈ ਪ੍ਰਮਾਣਿਕਤਾ ਸੰਰਚਿਤ ਨਹੀਂ ਹੈ।",
             "generic": "ਸਾਈਨ ਇਨ ਨਹੀਂ ਹੋ ਸਕਿਆ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"
-        }
+        },
+        "signUpPrompt": "Don't have an account?",
+        "signUpLink": "Sign up"
     },
     "AdminLayout": {
         "accessDeniedTitle": "ਪਹੁੰਚ ਅਸਵੀਕਾਰ ਕੀਤੀ ਗਈ",
@@ -706,5 +711,47 @@
         "placeholder": "Type your health concern...",
         "sendMessage": "Send message",
         "footer": "For informational use only • Consult a doctor"
+    },
+    "SignUp": {
+        "brandSubtitle": "Medicine safety platform",
+        "heading": "Create your account",
+        "description": "Join SahiDawa to track medicine safety reports and verification results.",
+        "missingConfig": {
+            "title": "Authentication is not configured",
+            "description": "Supabase URL or anon key is missing. Add the environment variables before signing up."
+        },
+        "googleButton": "Continue with Google",
+        "githubButton": "Continue with Github",
+        "emailSeparator": "or continue with email",
+        "fullNameLabel": "Full name",
+        "fullNamePlaceholder": "Your full name",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "you@example.com",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "Create a password",
+        "confirmPasswordLabel": "Confirm password",
+        "confirmPasswordPlaceholder": "Re-enter your password",
+        "showPassword": "Show password",
+        "hidePassword": "Hide password",
+        "showConfirmPassword": "Show confirm password",
+        "hideConfirmPassword": "Hide confirm password",
+        "signingUp": "Creating account...",
+        "signUp": "Sign Up",
+        "footerPrompt": "Already have an account?",
+        "signInLink": "Sign in",
+        "bottomText": "Protected access for SahiDawa community tools.",
+        "success": "Account created successfully! Redirecting...",
+        "successConfirmEmail": "Account created! Check your email to confirm your account before signing in.",
+        "errors": {
+            "databaseNotConfigured": "Authentication is not configured for this environment.",
+            "generic": "Unable to create account. Please try again.",
+            "fullNameRequired": "Full name is required.",
+            "emailRequired": "Email address is required.",
+            "emailInvalid": "Please enter a valid email address.",
+            "passwordRequired": "Password is required.",
+            "passwordWeak": "Password must be at least 8 characters and include uppercase, lowercase, and a number.",
+            "confirmPasswordRequired": "Please confirm your password.",
+            "passwordMismatch": "Passwords do not match."
+        }
     }
 }

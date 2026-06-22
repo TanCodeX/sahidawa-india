@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useVoiceVerification } from "../src/hooks/useVoiceVerification";
 
 type VerificationResult = {
@@ -24,49 +25,53 @@ type ApiResponse = {
     error?: string;
 };
 
-const STATUS_CONFIG = {
-    verified: {
-        label: "✅ Verified",
-        bg: "bg-green-50",
-        border: "border-green-400",
-        text: "text-green-800",
-        badge: "bg-green-100 text-green-800",
-    },
-    suspicious: {
-        label: "⚠️ Suspicious",
-        bg: "bg-yellow-50",
-        border: "border-yellow-400",
-        text: "text-yellow-800",
-        badge: "bg-yellow-100 text-yellow-800",
-    },
-    not_found: {
-        label: "❌ Not Found",
-        bg: "bg-red-50",
-        border: "border-red-400",
-        text: "text-red-800",
-        badge: "bg-red-100 text-red-800",
-    },
-};
-
 export default function VoiceVerify() {
+    const t = useTranslations("voiceVerify");
+
+    const STATUS_CONFIG = {
+        verified: {
+            label: `✅ ${t("statusVerified")}`,
+            bg: "bg-green-50",
+            border: "border-green-400",
+            text: "text-green-800",
+            badge: "bg-green-100 text-green-800",
+        },
+        suspicious: {
+            label: `⚠️ ${t("statusSuspicious")}`,
+            bg: "bg-yellow-50",
+            border: "border-yellow-400",
+            text: "text-yellow-800",
+            badge: "bg-yellow-100 text-yellow-800",
+        },
+        not_found: {
+            label: `❌ ${t("statusNotFound")}`,
+            bg: "bg-red-50",
+            border: "border-red-400",
+            text: "text-red-800",
+            badge: "bg-red-100 text-red-800",
+        },
+    };
+
     const {
         isRecording,
         isLoading,
         audioLevel,
         result,
-        error,
+        error: hookError,
         startRecording,
         stopRecording,
         reset,
     } = useVoiceVerification();
+
+    const error = hookError;
 
     const statusConfig = result ? STATUS_CONFIG[result.verification.status] : null;
 
     return (
         <div className="mx-auto max-w-md space-y-6 p-4">
             <div className="space-y-1 text-center">
-                <h2 className="text-2xl font-bold text-gray-900">🩺 Voice Medicine Check</h2>
-                <p className="text-sm text-gray-500">Speak the medicine name in your language</p>
+                <h2 className="text-2xl font-bold text-gray-900">🩺 {t("heading")}</h2>
+                <p className="text-sm text-gray-500">{t("subtitle")}</p>
             </div>
 
             {/* Mic Button */}
@@ -75,7 +80,7 @@ export default function VoiceVerify() {
                     <button
                         onClick={isRecording ? stopRecording : startRecording}
                         disabled={isLoading}
-                        aria-label={isRecording ? "Stop recording" : "Start recording"}
+                        aria-label={isRecording ? t("ariaStopRecording") : t("ariaStartRecording")}
                         className={`relative flex h-24 w-24 items-center justify-center rounded-full text-4xl text-white shadow-lg transition-all duration-200 focus:ring-4 focus:outline-none ${
                             isRecording
                                 ? "scale-110 bg-red-500 hover:bg-red-600 focus:ring-red-300"
@@ -100,15 +105,14 @@ export default function VoiceVerify() {
 
                     <p className="text-center text-sm text-gray-500">
                         {isLoading
-                            ? "Verifying medicine..."
+                            ? t("statusVerifying")
                             : isRecording
-                              ? "Recording... tap to stop"
-                              : "Tap to speak the medicine name"}
+                              ? t("statusRecording")
+                              : t("statusIdle")}
                     </p>
 
-                    <p className="text-center text-xs text-gray-400">
-                        Supports: Hindi • Tamil • Telugu • Kannada • Bengali • Malayalam + more
-                    </p>
+                    {/* Supported languages hint */}
+                    <p className="text-center text-xs text-gray-400">{t("supportedLanguages")}</p>
                 </div>
             )}
 
@@ -117,7 +121,7 @@ export default function VoiceVerify() {
                 <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-700">
                     {error}
                     <button onClick={reset} className="mt-2 block text-xs underline">
-                        Try again
+                        {t("tryAgain")}
                     </button>
                 </div>
             )}
@@ -135,13 +139,15 @@ export default function VoiceVerify() {
                             className={`rounded-full px-2 py-1 text-xs font-medium ${statusConfig.badge}`}
                         >
                             CDSCO{" "}
-                            {result.verification.cdsco_registered ? "Registered" : "Unverified"}
+                            {result.verification.cdsco_registered
+                                ? t("cdscoRegistered")
+                                : t("cdscoUnverified")}
                         </span>
                     </div>
 
                     <div className="space-y-1">
                         <p className="text-xs tracking-wide text-gray-400 uppercase">
-                            Medicine ({result.script} script)
+                            {t("scriptLabel", { script: result.script })}
                         </p>
                         <p className="text-2xl font-semibold text-gray-800">
                             {result.verification.medicine_name_regional ||
@@ -157,27 +163,27 @@ export default function VoiceVerify() {
 
                     <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                            <p className="text-xs text-gray-400">Manufacturer</p>
+                            <p className="text-xs text-gray-400">{t("manufacturerLabel")}</p>
                             <p className="font-medium text-gray-700">
                                 {result.verification.manufacturer}
                             </p>
                         </div>
                         <div>
-                            <p className="text-xs text-gray-400">Category</p>
+                            <p className="text-xs text-gray-400">{t("categoryLabel")}</p>
                             <p className="font-medium text-gray-700">
                                 {result.verification.category}
                             </p>
                         </div>
                         <div>
-                            <p className="text-xs text-gray-400">Language Detected</p>
+                            <p className="text-xs text-gray-400">{t("languageDetectedLabel")}</p>
                             <p className="font-medium text-gray-700 uppercase">
                                 {result.detected_language}
                             </p>
                         </div>
                         <div>
-                            <p className="text-xs text-gray-400">You said</p>
+                            <p className="text-xs text-gray-400">{t("youSaidLabel")}</p>
                             <p className="font-medium text-gray-700 italic">
-                                "{result.transcribed}"
+                                &quot;{result.transcribed}&quot;
                             </p>
                         </div>
                     </div>
@@ -185,7 +191,7 @@ export default function VoiceVerify() {
                     {result.verification.warnings.length > 0 && (
                         <div className="space-y-1 rounded-lg bg-white/60 p-3">
                             <p className="text-xs font-semibold text-gray-500 uppercase">
-                                Warnings
+                                {t("warningsLabel")}
                             </p>
                             {result.verification.warnings.map((w, i) => (
                                 <p key={i} className="text-sm text-orange-700">
@@ -199,7 +205,7 @@ export default function VoiceVerify() {
                         onClick={reset}
                         className="w-full rounded-xl bg-gray-100 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
                     >
-                        🎙 Check another medicine
+                        🎙 {t("checkAnother")}
                     </button>
                 </div>
             )}
@@ -207,9 +213,9 @@ export default function VoiceVerify() {
             {!result && !isRecording && (
                 <div className="text-center">
                     <p className="text-xs text-gray-400">
-                        No microphone?{" "}
+                        {t("fallbackText")}{" "}
                         <a href="/verify?mode=text" className="text-blue-500 underline">
-                            Use text input instead
+                            {t("fallbackLinkText")}
                         </a>
                     </p>
                 </div>
