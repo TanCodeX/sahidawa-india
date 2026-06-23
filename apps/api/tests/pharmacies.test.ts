@@ -28,6 +28,7 @@ import app from "../src/app";
 import { supabase } from "../src/db/client";
 
 const mockedSupabase = supabase as jest.Mocked<typeof supabase>;
+const GEOSPATIAL_CACHE_CONTROL = "public, max-age=300, s-maxage=300, stale-while-revalidate=600";
 
 describe("GET /api/pharmacies/nearest", () => {
     beforeEach(() => {
@@ -43,10 +44,12 @@ describe("GET /api/pharmacies/nearest", () => {
         expect(missingLatitude.status).toBe(400);
         expect(missingLatitude.body.error).toBe("Invalid coordinates");
         expect(missingLatitude.body.details).toHaveProperty("lat");
+        expect(missingLatitude.headers["cache-control"]).toBeUndefined();
 
         expect(missingLongitude.status).toBe(400);
         expect(missingLongitude.body.error).toBe("Invalid coordinates");
         expect(missingLongitude.body.details).toHaveProperty("lng");
+        expect(missingLongitude.headers["cache-control"]).toBeUndefined();
     });
 
     it("returns 400 for out-of-bounds coordinates", async () => {
@@ -105,6 +108,7 @@ describe("GET /api/pharmacies/nearest", () => {
         );
 
         expect(response.status).toBe(200);
+        expect(response.headers["cache-control"]).toBe(GEOSPATIAL_CACHE_CONTROL);
         expect(response.body.pharmacies).toHaveLength(2);
         expect(response.body.pharmacies[0].name).toBe("PMBJAK - AIIMS");
         expect(response.body.pharmacies[0].distance).toBe("2.3 km");
@@ -244,6 +248,7 @@ describe("GET /api/pharmacies/nearest", () => {
         );
 
         expect(response.status).toBe(200);
+        expect(response.headers["cache-control"]).toBe(GEOSPATIAL_CACHE_CONTROL);
 
         expect(mockedSupabase.rpc).toHaveBeenCalledWith("get_nearest_pharmacies", {
             query_lat: 12.9716,
@@ -280,6 +285,7 @@ describe("GET /api/pharmacies/in-bounds", () => {
 
         expect(response.status).toBe(400);
         expect(response.body.error).toBe("Invalid bounds");
+        expect(response.headers["cache-control"]).toBeUndefined();
     });
 
     it("returns 400 for out-of-range bounds", async () => {
@@ -327,6 +333,7 @@ describe("GET /api/pharmacies/in-bounds", () => {
         );
 
         expect(response.status).toBe(200);
+        expect(response.headers["cache-control"]).toBe(GEOSPATIAL_CACHE_CONTROL);
         expect(response.body.pharmacies).toHaveLength(1);
         expect(response.body.pharmacies[0].name).toBe("PMBJAK - AIIMS");
         expect(response.body.pharmacies[0].distance).toBe("3.5 km");
@@ -382,6 +389,7 @@ describe("GET /api/pharmacies/in-bounds", () => {
         );
 
         expect(response.status).toBe(200);
+        expect(response.headers["cache-control"]).toBe(GEOSPATIAL_CACHE_CONTROL);
         expect(response.body.pharmacies).toHaveLength(1);
         expect(response.body.pharmacies[0].name).toBe("Inside Bounds Pharmacy");
         expect(eq).toHaveBeenCalledWith("status", "approved");

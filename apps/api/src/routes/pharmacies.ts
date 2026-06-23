@@ -3,6 +3,7 @@ import { z } from "zod";
 import { supabase } from "../db/client";
 import logger from "../utils/logger";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { PharmacyRpcResult, FormattedPharmacy } from "../types/pharmacy.types";
 
 const router = Router();
 
@@ -10,6 +11,12 @@ const router = Router();
 
 /** Maximum number of pharmacies returned per request */
 const MAX_RESULTS = 200;
+
+const GEOSPATIAL_CACHE_CONTROL = "public, max-age=300, s-maxage=300, stale-while-revalidate=600";
+
+const setGeospatialCacheHeaders = (res: Response) => {
+    res.setHeader("Cache-Control", GEOSPATIAL_CACHE_CONTROL);
+};
 
 // ── TypeScript interfaces ────────────────────────────────────────────────────
 
@@ -401,6 +408,7 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
                 }))
                 .slice(0, MAX_RESULTS);
 
+            setGeospatialCacheHeaders(res);
             return res.json({ pharmacies });
         }
 
@@ -439,6 +447,7 @@ router.get("/nearest", async (req: Request, res: Response, next: NextFunction) =
             .slice(0, MAX_RESULTS)
             .map(({ rawDistance, ...rest }: PharmacyWithRawDistance): FormattedPharmacy => rest);
 
+        setGeospatialCacheHeaders(res);
         res.json({ pharmacies });
     } catch (err) {
         next(err);
@@ -608,6 +617,7 @@ router.get("/in-bounds", async (req: Request, res: Response, next: NextFunction)
                     state: p.state || null,
                 }))
                 .slice(0, MAX_RESULTS);
+            setGeospatialCacheHeaders(res);
             return res.json({ pharmacies });
         }
 
@@ -651,6 +661,7 @@ router.get("/in-bounds", async (req: Request, res: Response, next: NextFunction)
             .slice(0, MAX_RESULTS)
             .map(({ coords, ...rest }) => rest);
 
+        setGeospatialCacheHeaders(res);
         res.json({ pharmacies });
     } catch (err) {
         next(err);
@@ -719,7 +730,7 @@ router.post(
 
                 const validationResult = inventoryRowSchema.safeParse(rowData);
                 if (!validationResult.success) {
-                    const errorMessage = validationResult.error.errors
+                    const errorMessage = validationResult.error.issues
                         .map((e) => e.message)
                         .join(", ");
                     failedRows.push({ row: i + 1, reason: errorMessage });
