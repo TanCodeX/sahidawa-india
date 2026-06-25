@@ -5,15 +5,18 @@ import { rateLimit } from "@/lib/rateLimit";
 import { BASE_PROMPT } from "@/lib/chatPrompts";
 import { structuredLog } from "@/lib/structuredLogger";
 import { ChatRoles, ChatRole } from "@/lib/constants";
-import { get_encoding } from "tiktoken";
 import crypto from "crypto";
 
-export function trimHistoryByTokens(
+function estimateTokens(text: string): number {
+    const words = text.trim().split(/\s+/).filter(Boolean).length;
+    return Math.ceil(words * 1.33);
+}
+
+function trimHistoryByTokens(
     messages: ChatMessage[],
     maxTokens: number
 ): { trimmedMessages: ChatMessage[]; droppedMessages: ChatMessage[] } {
     try {
-        const enc = get_encoding("cl100k_base");
         const trimmed: ChatMessage[] = [];
         const dropped: ChatMessage[] = [];
         let currentTokens = 0;
@@ -21,7 +24,7 @@ export function trimHistoryByTokens(
         for (let i = messages.length - 1; i >= 0; i--) {
             const msg = messages[i];
             const text = msg.text || msg.content || "";
-            const tokens = enc.encode(text).length;
+            const tokens = estimateTokens(text);
             const msgTokens = tokens + 4; // overhead buffer
 
             if (currentTokens + msgTokens > maxTokens && trimmed.length > 0) {
@@ -33,9 +36,8 @@ export function trimHistoryByTokens(
             trimmed.unshift(msg);
         }
 
-        enc.free();
         return { trimmedMessages: trimmed, droppedMessages: dropped };
-    } catch (e) {
+    } catch {
         return { trimmedMessages: messages.slice(-50), droppedMessages: [] };
     }
 }
@@ -222,7 +224,10 @@ export async function POST(req: Request) {
         const MAX_MESSAGE_CHARS = 2000;
         const MAX_TOKENS = 3000; // Safe limit for standard context + response
         const recentMessages = messages.slice(-MAX_MESSAGES);
-        let { trimmedMessages, droppedMessages } = trimHistoryByTokens(recentMessages, MAX_TOKENS);
+        const { trimmedMessages, droppedMessages } = trimHistoryByTokens(
+            recentMessages,
+            MAX_TOKENS
+        );
 
         for (const msg of trimmedMessages) {
             const text = msg.text || msg.content || "";
