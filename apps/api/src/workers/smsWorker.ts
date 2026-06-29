@@ -1,5 +1,5 @@
-import { Worker } from "bullmq";
-import logger from "../utils/logger";
+import IORedis from "ioredis";
+const connection = new IORedis(process.env.REDIS_URL);
 
 new Worker(
     "sms-queue",
@@ -48,10 +48,7 @@ new Worker(
         throw new Error(`Twilio SMS API error: ${response.status} ${errText}`);
     },
     {
-        connection: {
-            host: process.env.REDIS_HOST || "127.0.0.1",
-            port: Number(process.env.REDIS_PORT || 6379),
-        },
+        connection,
     }
 );
 

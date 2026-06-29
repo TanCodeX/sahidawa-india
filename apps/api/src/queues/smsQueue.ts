@@ -1,10 +1,9 @@
 import { Queue } from "bullmq";
+import IORedis from "ioredis";
+const connection = new IORedis(process.env.REDIS_URL);
 
 export const smsQueue = new Queue("sms-queue", {
-    connection: {
-        host: process.env.REDIS_HOST || "127.0.0.1",
-        port: Number(process.env.REDIS_PORT || 6379),
-    },
+    connection,
     defaultJobOptions: {
         attempts: 5,
         backoff: {
