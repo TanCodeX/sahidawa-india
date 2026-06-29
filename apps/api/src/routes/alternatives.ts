@@ -164,25 +164,11 @@ router.get("/:medicine_id", barcodeLimiter, async (req: Request, res: Response):
         }
 
         if (!alternative) {
-            // Fallback: Check if the medicine has a generic name and we can construct a dummy generic alternative
-            const brand = medicine || {
-                brand_name: medicine_id,
-                generic_name: "Generic Alternative",
-                mrp: 120.0,
-                jan_aushadhi_price: 15.0,
-            };
-            const brandPrice = Number(brand.mrp || brand.brand_price || 120.0);
-            const jaPrice = Number(brand.jan_aushadhi_price || 15.0);
-            const savings = Math.round(((brandPrice - jaPrice) / brandPrice) * 100);
-
-            alternative = {
-                brand_name: brand.brand_name,
-                generic_name: brand.generic_name,
-                brand_price: brandPrice,
-                jan_aushadhi_price: jaPrice,
-                savings_percentage: savings > 0 ? savings : 0,
-                generic_name_display: `${brand.generic_name} (Generic)`,
-            };
+            res.status(404).json({
+                error: "No generic alternative found for this medicine",
+                suggestion: "Visit your nearest Jan Aushadhi store or ask your pharmacist.",
+            });
+            return;
         }
 
         // 3. Find nearest pharmacy
