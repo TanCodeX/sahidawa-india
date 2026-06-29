@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { GET } from "./route";
+import { supabase } from "@/lib/supabase";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -92,16 +93,14 @@ describe("GET /api/medicines/search", () => {
     });
 
     it("does not reach DB when rate limited", async () => {
-        const { supabase } = require("@/lib/supabase");
         blockAll();
         await GET(makeRequest("aspirin"));
-        expect(supabase.from).not.toHaveBeenCalled();
+        expect(supabase.from as jest.Mock).not.toHaveBeenCalled();
     });
 
     it("query with comma does not throw and reaches DB safely", async () => {
-        const { supabase } = require("@/lib/supabase");
         const orMock = jest.fn().mockReturnThis();
-        supabase.from.mockReturnValue({
+        (supabase.from as jest.Mock).mockReturnValue({
             select: jest.fn().mockReturnThis(),
             or: orMock,
             limit: jest.fn().mockResolvedValue({ data: [], error: null }),
@@ -116,9 +115,8 @@ describe("GET /api/medicines/search", () => {
     });
 
     it("query with parentheses is escaped before reaching DB", async () => {
-        const { supabase } = require("@/lib/supabase");
         const orMock = jest.fn().mockReturnThis();
-        supabase.from.mockReturnValue({
+        (supabase.from as jest.Mock).mockReturnValue({
             select: jest.fn().mockReturnThis(),
             or: orMock,
             limit: jest.fn().mockResolvedValue({ data: [], error: null }),

@@ -44,8 +44,15 @@ router.patch("/reports/:id/status", requireAuth, requireRole("admin"), updateRep
 router.post("/medicines", requireAuth, requireRole("admin"), createMedicine);
 router.patch("/pharmacies/:id/status", requireAuth, requireRole("admin"), updatePharmacyStatus);
 router.get("/pharmacies", requireAuth, requireRole("admin", "moderator"), getAllPharmacies);
-router.delete("/pharmacies/:id", requireAuth, requireRole("admin"), deletePharmacy);
-router.post("/pharmacies/:id/restore", requireAuth, requireRole("admin"), restorePharmacy);
+router.delete("/pharmacies/:id", limiter, requireAuth, requireRole("admin"), deletePharmacy);
+router.post(
+    "/pharmacies/:id/deactivate",
+    limiter,
+    requireAuth,
+    requireRole("admin"),
+    deletePharmacy
+);
+router.post("/pharmacies/:id/restore", limiter, requireAuth, requireRole("admin"), restorePharmacy);
 
 const InvalidateCacheSchema = z.object({
     drugIds: z
