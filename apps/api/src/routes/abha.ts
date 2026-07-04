@@ -8,6 +8,7 @@ import {
     getPrescriptions,
     uploadVerification,
     unlinkABHA,
+    getAbhaStatus,
 } from "../services/abha.service";
 
 // Zod schemas for validating ABHA route request bodies.
@@ -19,6 +20,7 @@ const linkSchema = z.object({
 });
 
 const verifyOtpSchema = z.object({
+    abhaAddress: z.string().trim().min(1).max(256),
     txnId: z.string().trim().min(1),
     otp: z
         .string()
@@ -58,30 +60,71 @@ router.post("/link", limiter, async (req: Request, res: Response): Promise<void>
 
 // POST /api/v1/abha/verify-otp
 // Verifies the OTP and returns an ABHA token
-router.post("/verify-otp", limiter, async (req: Request, res: Response): Promise<void> => {
-    try {
-        const parsed = verifyOtpSchema.safeParse(req.body);
-        if (!parsed.success) {
-            res.status(400).json({
-                error: "Invalid OTP verification payload",
-                issues: parsed.error.issues,
-            });
-            return;
-        }
+router.post(
+    "/verify-otp",
+    limiter,
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                res.status(401).json({ error: "Unauthorized" });
+                return;
+            }
 
-        const result = await verifyOTP(parsed.data.txnId, parsed.data.otp);
-        res.status(200).json(result);
-    } catch (error) {
-        res.status(500).json({
-            error: error instanceof Error ? error.message : "Failed to verify OTP",
-        });
+            const parsed = verifyOtpSchema.safeParse(req.body);
+            if (!parsed.success) {
+                res.status(400).json({
+                    error: "Invalid OTP verification payload",
+                    issues: parsed.error.issues,
+                });
+                return;
+            }
+
+            const result = await verifyOTP(
+                userId,
+                parsed.data.abhaAddress,
+                parsed.data.txnId,
+                parsed.data.otp
+            );
+            res.status(200).json(result);
+        } catch (error) {
+            res.status(500).json({
+                error: error instanceof Error ? error.message : "Failed to verify OTP",
+            });
+        }
     }
-});
+);
+
+// GET /api/v1/abha/status
+// Checks if the user has an active ABHA link
+router.get(
+    "/status",
+    limiter,
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+        try {
+            const userId = req.user?.id;
+            if (!userId) {
+                res.status(401).json({ error: "Unauthorized" });
+                return;
+            }
+
+            const result = await getAbhaStatus(userId);
+            res.status(200).json(result);
+        } catch (error) {
+            res.status(500).json({
+                error: error instanceof Error ? error.message : "Failed to check ABHA status",
+            });
+        }
+    }
+);
 
 // GET /api/v1/abha/prescriptions
 // Fetches prescriptions for the current user from abha_records
 router.get(
     "/prescriptions",
+    limiter,
     requireAuth,
     async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
@@ -105,6 +148,7 @@ router.get(
 // Uploads a medicine verification result to abha_records for the current user
 router.post(
     "/upload-verification",
+    limiter,
     requireAuth,
     async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
@@ -138,6 +182,7 @@ router.post(
 // Soft-deletes the ABHA link for the current user by setting is_active to false
 router.delete(
     "/unlink",
+    limiter,
     requireAuth,
     async (req: AuthenticatedRequest, res: Response): Promise<void> => {
         try {
