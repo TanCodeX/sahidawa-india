@@ -6,26 +6,37 @@ import { AuthenticatedRequest } from "../middleware/auth";
 import { triggerRecallAlert } from "../services/notifications";
 import logger from "../utils/logger";
 
-const reportStatusSchema = z.object({
-    status: z.enum(["pending", "verified_fake", "false_alarm"]),
-});
+const reportStatusSchema = z
+    .object({
+        status: z.enum(["pending", "verified_fake", "false_alarm"]),
+    })
+    .strict();
 
-const medicineStatusSchema = z.object({
-    status: z.enum(["safe", "suspicious", "recalled", "pending_review"]),
-});
+const medicineStatusSchema = z
+    .object({
+        status: z.enum(["safe", "suspicious", "recalled", "pending_review"]),
+    })
+    .strict();
 
-const pharmacyStatusSchema = z.object({
-    status: z.enum(["approved", "rejected"]),
-});
+const pharmacyStatusSchema = z
+    .object({
+        status: z.enum(["approved", "rejected"]),
+    })
+    .strict();
 
-const medicineSchema = z.object({
-    brand_name: z.string().min(1),
-    generic_name: z.string().min(1),
-    manufacturer: z.string().min(1),
-    barcode_id: z.string().optional(),
-    cdsco_approval_status: z.enum(["approved", "recalled", "banned"]).default("approved"),
-    status: z.enum(["safe", "suspicious", "recalled", "pending_review"]).default("safe").optional(),
-});
+const medicineSchema = z
+    .object({
+        brand_name: z.string().min(1),
+        generic_name: z.string().min(1),
+        manufacturer: z.string().min(1),
+        barcode_id: z.string().optional(),
+        cdsco_approval_status: z.enum(["approved", "recalled", "banned"]).default("approved"),
+        status: z
+            .enum(["safe", "suspicious", "recalled", "pending_review"])
+            .default("safe")
+            .optional(),
+    })
+    .strict();
 
 const paginationSchema = z.object({
     page: z.coerce.number().int().min(1).default(1),
@@ -533,6 +544,143 @@ export const restorePharmacy = async (req: AuthenticatedRequest, res: Response):
         res.json({ message: "Pharmacy restored successfully" });
     } catch (err) {
         console.error("Error in restorePharmacy:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+const verificationReviewSchema = z
+    .object({
+        status: z.enum(["approved", "rejected"]),
+        rejection_reason: z.string().max(500).optional(),
+    })
+    .strict();
+
+export const getPendingVerificationRequests = async (
+    req: AuthenticatedRequest,
+    res: Response
+): Promise<void> => {
+    try {
+        const parsed = paginationSchema.safeParse(req.query);
+
+        if (!parsed.success) {
+            res.status(400).json({
+                error: "Invalid pagination parameters",
+                details: parsed.error.issues,
+            });
+            return;
+        }
+
+        const { page, limit } = parsed.data;
+        const offset = (page - 1) * limit;
+
+        const { data, error, count } = await supabase
+            .from("medicine_verification_requests")
+            .select("*, medicines(brand_name, generic_name, manufacturer)", { count: "exact" })
+            .eq("status", "pending")
+            .order("created_at", { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (error) {
+            res.status(500).json({ error: "Failed to fetch verification requests" });
+            return;
+        }
+
+        res.json({
+            requests: data ?? [],
+            meta: {
+                total: count || 0,
+                page,
+                limit,
+                totalPages: count ? Math.ceil(count / limit) : 0,
+            },
+        });
+    } catch (err) {
+        console.error("Error in getPendingVerificationRequests:", err);
+        res.status(500).json({ error: "Internal server error" });
+    }
+};
+
+export const reviewVerificationRequest = async (
+    req: AuthenticatedRequest,
+    res: Response
+): Promise<void> => {
+    try {
+        const { id } = req.params;
+        const parsed = verificationReviewSchema.safeParse(req.body);
+
+        if (!parsed.success) {
+            res.status(400).json({ error: "Invalid review data", details: parsed.error.issues });
+            return;
+        }
+
+        const { status, rejection_reason } = parsed.data;
+
+        // Fetch the request first to get medicine_id
+        const { data: request, error: fetchError } = await supabase
+            .from("medicine_verification_requests")
+            .select("id, medicine_id, medicine_name")
+            .eq("id", id)
+            .single();
+
+        if (fetchError || !request) {
+            res.status(404).json({ error: "Verification request not found" });
+            return;
+        }
+
+        // Update the request status
+        const updatePayload: Record<string, unknown> = {
+            status,
+            reviewed_by: req.user!.id,
+            reviewed_at: new Date().toISOString(),
+        };
+        if (rejection_reason) {
+            updatePayload.rejection_reason = rejection_reason;
+        }
+
+        const { data: updated, error: updateError } = await supabase
+            .from("medicine_verification_requests")
+            .update(updatePayload)
+            .eq("id", id)
+            .select()
+            .single();
+
+        if (updateError || !updated) {
+            res.status(500).json({ error: "Failed to update verification request" });
+            return;
+        }
+
+        // If approved and medicine_id exists, mark the medicine as verified
+        if (status === "approved" && request.medicine_id) {
+            const { error: medicineError } = await supabase
+                .from("medicines")
+                .update({ is_verified: true })
+                .eq("id", request.medicine_id);
+
+            if (medicineError) {
+                logger.error({
+                    message: "Failed to mark medicine as verified",
+                    error: medicineError,
+                    medicine_id: request.medicine_id,
+                });
+            }
+        }
+
+        await logAdminAction(
+            req.user!.id,
+            `VERIFICATION_${status.toUpperCase()}`,
+            "MEDICINE",
+            String(id),
+            {
+                medicine_name: request.medicine_name,
+                medicine_id: request.medicine_id,
+                status,
+                rejection_reason: rejection_reason ?? null,
+            }
+        );
+
+        res.json({ message: `Verification request ${status}`, request: updated });
+    } catch (err) {
+        console.error("Error in reviewVerificationRequest:", err);
         res.status(500).json({ error: "Internal server error" });
     }
 };

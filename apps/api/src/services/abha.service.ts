@@ -1,4 +1,4 @@
-import { constants, publicEncrypt, randomUUID } from "node:crypto";
+import crypto, { constants, publicEncrypt, randomUUID } from "node:crypto";
 import { supabase } from "../db/client";
 import logger from "../utils/logger";
 
@@ -67,8 +67,14 @@ export const generateOTP = async (abhaAddress: string): Promise<ABHALinkResponse
     };
 };
 
-export const verifyOTP = async (txnId: string, otp: string): Promise<{ token: string }> => {
+export const verifyOTP = async (
+    userId: string,
+    abhaAddress: string,
+    txnId: string,
+    otp: string
+): Promise<{ token: string }> => {
     logger.info("ABHA OTP verification requested", {
+        userId,
         txnId,
         otpProvided: Boolean(otp),
     });
@@ -94,6 +100,39 @@ export const verifyOTP = async (txnId: string, otp: string): Promise<{ token: st
     if (!token) {
         throw new Error("ABDM sandbox returned an invalid OTP verification response");
     }
+
+    // Encrypt token for storage
+    const iv = crypto.randomBytes(16);
+    const key = crypto.scryptSync(getRequiredEnv("ABDM_SANDBOX_CLIENT_SECRET"), "salt", 32);
+    const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+    let encryptedToken = cipher.update(token, "utf8", "hex");
+    encryptedToken += cipher.final("hex");
+
+    // Upsert into abha_links
+    const { error } = await supabase.from("abha_links").upsert(
+        {
+            user_id: userId,
+            abha_address: abhaAddress,
+            abha_number: "dummy-abha-number", // ABDM Sandbox might not return this here
+            encrypted_token: encryptedToken,
+            encryption_iv: iv.toString("hex"),
+            is_active: true,
+            linked_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+    );
+
+    if (error) {
+        logger.error("Failed to save ABHA link", { error: error.message });
+        throw new Error("Failed to link ABHA: " + error.message);
+    }
+
+    // Log the action
+    await supabase.from("abha_audit_log").insert({
+        user_id: userId,
+        action: "LINKED",
+        status: "SUCCESS",
+    });
 
     return {
         token,
@@ -190,18 +229,28 @@ const requestAbdm = async <T>(
 };
 
 const encryptWithAbdmPublicKey = (value: string, publicKey: string): string => {
+    if (!publicKey || typeof publicKey !== "string" || publicKey.trim().length === 0) {
+        throw new Error("ABDM public key is empty or invalid");
+    }
+
     const normalizedPublicKey = publicKey.includes("BEGIN PUBLIC KEY")
         ? publicKey
         : `-----BEGIN PUBLIC KEY-----\n${publicKey.match(/.{1,64}/g)?.join("\n")}\n-----END PUBLIC KEY-----`;
 
-    return publicEncrypt(
-        {
-            key: normalizedPublicKey,
-            padding: constants.RSA_PKCS1_OAEP_PADDING,
-            oaepHash: "sha1",
-        },
-        Buffer.from(value, "utf8")
-    ).toString("base64");
+    try {
+        return publicEncrypt(
+            {
+                key: normalizedPublicKey,
+                padding: constants.RSA_PKCS1_OAEP_PADDING,
+                oaepHash: "sha1",
+            },
+            Buffer.from(value, "utf8")
+        ).toString("base64");
+    } catch (error) {
+        throw new Error(
+            `ABDM public key encryption failed: ${error instanceof Error ? error.message : "unknown error"}`
+        );
+    }
 };
 
 const isMappedAbdmError = (message: string): boolean =>
@@ -311,5 +360,35 @@ export const unlinkABHA = async (userId: string): Promise<{ success: boolean }> 
         throw new Error(error.message);
     }
 
+    // Log the action
+    await supabase.from("abha_audit_log").insert({
+        user_id: userId,
+        action: "UNLINKED",
+        status: "SUCCESS",
+    });
+
     return { success: true };
+};
+
+export const getAbhaStatus = async (
+    userId: string
+): Promise<{ isLinked: boolean; abhaAddress?: string }> => {
+    logger.info("ABHA status check requested", { userId });
+
+    const { data, error } = await supabase
+        .from("abha_links")
+        .select("is_active, abha_address")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+    if (error) {
+        logger.error("ABHA status check failed", { error: error.message });
+        throw new Error(error.message);
+    }
+
+    if (data && data.is_active) {
+        return { isLinked: true, abhaAddress: data.abha_address };
+    }
+
+    return { isLinked: false };
 };

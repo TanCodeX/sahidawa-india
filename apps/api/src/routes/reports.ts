@@ -141,7 +141,8 @@ reportsRouter.post(
                 req.user?.id ?? null
             );
 
-            const { data: report, error } = await supabase
+            const reportHash = computeReportHash(validationPayload);
+            const { data: reports, error } = await supabase
                 .from("counterfeit_reports")
                 .upsert(
                     {
@@ -159,7 +160,7 @@ reportsRouter.post(
                         report_location: buildReportLocation(data.latitude, data.longitude),
                         reporter_id: req.user?.id ?? null,
                         ip_address: ipAddress,
-                        report_hash: computeReportHash(validationPayload),
+                        report_hash: reportHash,
                         risk_score: validation.riskScore,
                         is_escalated: !validation.passed,
                         duplicate_group_id: validation.duplicateGroupId ?? null,
@@ -171,12 +172,43 @@ reportsRouter.post(
                 )
                 .select(
                     "id, reported_brand_name, status, district, created_at, scanned_barcode, medicine_id"
-                )
-                .single();
+                );
 
             if (error) {
-                res.status(500).json({ error: "Failed to submit counterfeit report" });
+                res.status(500).json({
+                    error: "Failed to submit counterfeit report",
+                });
                 return;
+            }
+
+            let report = reports?.[0];
+
+            let statusCode = 201;
+            if (!report) {
+                const { data: existingReport, error: fetchError } = await supabase
+                    .from("counterfeit_reports")
+                    .select(
+                        "id, reported_brand_name, status, district, created_at, scanned_barcode, medicine_id"
+                    )
+                    .eq("report_hash", reportHash)
+                    .maybeSingle();
+
+                if (fetchError) {
+                    res.status(500).json({
+                        error: "Failed to fetch existing report",
+                    });
+                    return;
+                }
+
+                if (!existingReport) {
+                    res.status(500).json({
+                        error: "Existing report could not be retrieved",
+                    });
+                    return;
+                }
+
+                report = existingReport;
+                statusCode = 200;
             }
 
             const response: Record<string, unknown> = { report };
@@ -190,7 +222,7 @@ reportsRouter.post(
                 };
             }
 
-            res.status(201).json(response);
+            res.status(statusCode).json(response);
         } catch (err) {
             next(err);
         }
@@ -324,13 +356,22 @@ reportsRouter.patch(
             return;
         }
 
-        const { status } = req.body as { status?: string };
-        const allowedStatuses = ["pending", "verified_fake", "false_alarm"];
+        const updateReportStatusSchema = z
+            .object({
+                status: z.enum(["pending", "verified_fake", "false_alarm"]),
+            })
+            .strict();
 
-        if (!status || !allowedStatuses.includes(status)) {
-            res.status(400).json({ error: "Invalid report status" });
+        const parsedBody = updateReportStatusSchema.safeParse(req.body);
+        if (!parsedBody.success) {
+            res.status(400).json({
+                error: "Invalid report status or unknown fields",
+                details: parsedBody.error,
+            });
             return;
         }
+
+        const { status } = parsedBody.data;
 
         try {
             // Verify the report exists before updating. Without this check a
@@ -341,7 +382,7 @@ reportsRouter.patch(
                 .from("counterfeit_reports")
                 .select("id")
                 .eq("id", req.params.id)
-                .single();
+                .maybeSingle();
 
             if (fetchError || !existing) {
                 res.status(404).json({ error: "Report not found" });
@@ -375,6 +416,7 @@ reportsRouter.patch(
                     .from("counterfeit_reports")
                     .select("*", { count: "exact", head: true })
                     .eq("district", data.district)
+                    .eq("reported_brand_name", data.reported_brand_name)
                     .eq("status", "verified_fake")
                     .eq("is_escalated", false);
 

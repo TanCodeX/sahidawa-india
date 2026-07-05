@@ -6,6 +6,7 @@
  * Tech: React Hook Form · Zod · @hookform/resolvers · Framer Motion · Tailwind CSS
  * Design: SahiDawa modern aesthetic — emerald accents, deep navy header, rounded corners
  */
+import { enqueueReport } from "@/lib/offline/queue";
 import { handleApiError } from "@/lib/apiErrorHandler";
 import React, { useState, useEffect, useId, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
@@ -96,6 +97,13 @@ const EMPTY: FormValues = {
     scannedBarcode: undefined,
     medicineId: undefined,
 };
+
+function handleInputFocus(event: React.FocusEvent<HTMLInputElement | HTMLTextAreaElement>) {
+    event.currentTarget.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+    });
+}
 
 // ─── Per-step field keys ────────────────────────────────────────────────────────
 const STEP_KEYS: Record<number, (keyof FormValues)[]> = {
@@ -396,6 +404,7 @@ function Step1() {
                 <FL req>Medicine Name</FL>
                 <input
                     {...register("medicineName")}
+                    onFocus={handleInputFocus}
                     placeholder="e.g. Augmentin 625 Duo"
                     className={inp(!!errors.medicineName)}
                     aria-invalid={errors.medicineName ? "true" : undefined}
@@ -407,6 +416,7 @@ function Step1() {
                 <FL req>Manufacturer</FL>
                 <input
                     {...register("manufacturer")}
+                    onFocus={handleInputFocus}
                     placeholder="e.g. Cipla Ltd."
                     className={inp(!!errors.manufacturer)}
                     aria-invalid={errors.manufacturer ? "true" : undefined}
@@ -418,6 +428,7 @@ function Step1() {
                 <FL req>Description of Concern</FL>
                 <textarea
                     {...register("description")}
+                    onFocus={handleInputFocus}
                     rows={4}
                     placeholder="Describe unusual colour, smell, texture, packaging, reported side-effects…"
                     className={`${inp(!!errors.description)} resize-none`}
@@ -670,6 +681,7 @@ function Step3() {
                 <FL req>Pharmacy / Store Name</FL>
                 <input
                     {...register("pharmacyName")}
+                    onFocus={handleInputFocus}
                     placeholder="e.g. Apollo Pharmacy, MG Road"
                     className={inp(!!errors.pharmacyName)}
                     aria-invalid={errors.pharmacyName ? "true" : undefined}
@@ -681,6 +693,7 @@ function Step3() {
                 <FL req>Street Address</FL>
                 <input
                     {...register("address")}
+                    onFocus={handleInputFocus}
                     placeholder="e.g. 45, Park Street, Near Bus Stand"
                     className={inp(!!errors.address)}
                     aria-invalid={errors.address ? "true" : undefined}
@@ -693,6 +706,7 @@ function Step3() {
                     <FL req>City</FL>
                     <input
                         {...register("city")}
+                        onFocus={handleInputFocus}
                         placeholder="Mumbai"
                         className={inp(!!errors.city)}
                         aria-invalid={errors.city ? "true" : undefined}
@@ -704,6 +718,7 @@ function Step3() {
                     <FL req>State</FL>
                     <input
                         {...register("state")}
+                        onFocus={handleInputFocus}
                         placeholder="Maharashtra"
                         className={inp(!!errors.state)}
                         aria-invalid={errors.state ? "true" : undefined}
@@ -716,6 +731,7 @@ function Step3() {
                 <FL req>Pincode</FL>
                 <input
                     {...register("pincode")}
+                    onFocus={handleInputFocus}
                     placeholder="400001"
                     maxLength={6}
                     inputMode="numeric"
@@ -817,6 +833,7 @@ export default function ReportWizard() {
     const [step, setStep] = useState(1);
     const [dir, setDir] = useState(1);
     const [images, setImages] = useState<ImageEntry[]>([]);
+    const stepContentRef = useRef<HTMLDivElement | null>(null);
     const [submitting, setSubmitting] = useState(false);
     const [submitErr, setSubmitErr] = useState<string | null>(null);
     const [done, setDone] = useState(false);
@@ -905,6 +922,19 @@ export default function ReportWizard() {
         return () => clearTimeout(timer);
     }, [JSON.stringify(watchedValues), step, images, restoredDraft, done]);
 
+    useEffect(() => {
+        const target = stepContentRef.current;
+        if (!target) return;
+
+        const focusable = target.querySelector<HTMLElement>(
+            'input:not([disabled]), textarea:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+
+        if (focusable) {
+            requestAnimationFrame(() => focusable.focus());
+        }
+    }, [step]);
+
     // Navigation
     const next = async () => {
         if (!(await trigger(STEP_KEYS[step]))) return;
@@ -931,76 +961,20 @@ export default function ReportWizard() {
             } catch {
                 // ignore if supabase is not configured
             }
-        }
 
-        // If already offline, skip the network attempt entirely
-        if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (typeof navigator !== "undefined" && (!navigator.onLine || isNetworkError)) {
             try {
                 const geo = await geocodePincode(data.pincode).catch(() => null);
-                await queueReport({ ...data, ...(geo ?? {}) });
-                await clearDraft();
-                setPendingCount((c) => c + 1);
-                setReportId(null);
-                setQueuedOffline(true);
-                setDone(true);
-                toast.info(
-                    "You're offline. Your report has been saved locally and will auto-submit once connection improves."
-                );
+                await enqueueReport({ reportData: data });
+                alert("Report saved locally and will sync when back online!");
             } catch (queueErr) {
                 console.error("Failed to queue report offline:", queueErr);
-                setSubmitErr(
-                    "You're offline and the report could not be saved locally. Please try again."
-                );
-
-                await handleApiError(queueErr, "Failed to save report locally.");
+                setSubmitErr("You're offline and the report could not be saved locally.");
             } finally {
                 setSubmitting(false);
             }
             return;
         }
-
-        try {
-            const geo = await geocodePincode(data.pincode);
-            const { report } = await submitReport({ ...data, ...(geo ?? {}) }, token);
-            setReportId(report.id);
-            setQueuedOffline(false);
-            await clearDraft();
-            setDone(true);
-        } catch (e) {
-            const isNetworkError =
-                e instanceof TypeError ||
-                (e instanceof Error && /network|fetch|timeout|failed/i.test(e.message));
-
-            if (isNetworkError) {
-                try {
-                    const geo = await geocodePincode(data.pincode).catch(() => null);
-                    await queueReport({ ...data, ...(geo ?? {}) });
-                    await clearDraft();
-                    setPendingCount((c) => c + 1);
-                    setReportId(null);
-                    setQueuedOffline(true);
-                    setDone(true);
-                    toast.info(
-                        "Network slow. Your report has been saved locally and will auto-submit once connection improves."
-                    );
-                    return;
-                } catch (queueErr) {
-                    console.error("Failed to queue report offline:", queueErr);
-                }
-            }
-
-            const errorMsg =
-                e instanceof Error
-                    ? e.message
-                    : "Submission failed. Please check your connection and try again.";
-            setSubmitErr(errorMsg);
-            toast.error(errorMsg);
-        } finally {
-            setSubmitting(false);
-        }
-    };
-
-    // Full reset
     const handleReset = () => {
         images.forEach((i) => URL.revokeObjectURL(i.preview));
         setImages([]);
@@ -1019,7 +993,7 @@ export default function ReportWizard() {
             {/* Semantic form wrapper — enables Enter-to-submit and screen reader identification */}
             <form onSubmit={handleSubmit(onSubmit)} noValidate>
                 {/* Card */}
-                <div className="mx-auto flex w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-(--color-border-muted) bg-(--color-surface-page) font-sans shadow-xl dark:shadow-none">
+                <div className="mx-auto flex w-full max-w-2xl min-h-0 flex-col overflow-hidden rounded-2xl border border-(--color-border-muted) bg-(--color-surface-page) font-sans shadow-xl dark:shadow-none">
                     {/* ── Header band ── */}
                     <div className="relative overflow-hidden bg-slate-900 px-8 pt-8 pb-7">
                         {/* Decorative blur */}
@@ -1053,7 +1027,7 @@ export default function ReportWizard() {
                     </div>
 
                     {/* ── Body ── */}
-                    <div className="flex-1 bg-(--color-surface-page) px-8 py-8">
+                    <div className="flex-1 min-h-0 bg-(--color-surface-page) px-8 py-8">
                         {done ? (
                             <Success
                                 onReset={handleReset}
@@ -1151,15 +1125,10 @@ export default function ReportWizard() {
                                                 <>
                                                     Submit Report <Icon.Send />
                                                 </>
-                                            )}
-                                        </button>
-                                    )}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>
-            </form>
-        </FormProvider>
+)}
+            </button>
+        </div>
+    </form>
+</FormProvider>
     );
 }
