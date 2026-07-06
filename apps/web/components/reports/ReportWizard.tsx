@@ -8,7 +8,7 @@
  */
 import { enqueueReport } from "@/lib/offline/queue";
 import { handleApiError } from "@/lib/apiErrorHandler";
-import React, { useState, useEffect, useId, useMemo } from "react";
+import React, { useState, useEffect, useId, useMemo, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useForm, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -982,7 +982,7 @@ export default function ReportWizard() {
 
         try {
             const result = await submitReport(data, token);
-            setReportId(result?.id ?? null);
+            setReportId(result?.report?.id ?? null);
             setDone(true);
             void clearDraft();
         } catch (err) {
