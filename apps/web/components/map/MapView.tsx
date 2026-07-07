@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useRef } from "react";
 import dynamic from "next/dynamic";
-// Import the hook
 import { usePredictivePrefetch } from "../../hooks/usePredictivePrefetch";
 
 interface Pharmacy {
@@ -28,6 +27,7 @@ interface AshaWorker {
     distance_km: number;
 }
 
+// Leaflet must be loaded client-side only in Next.js
 const MapContainer = dynamic(() => import("react-leaflet").then((m) => m.MapContainer), {
     ssr: false,
 });
@@ -62,12 +62,37 @@ export default function MapView() {
             const res = await fetch(`/api/map/nearby?lat=${lat}&lng=${lng}&radius_km=10`, {
                 signal: controller.signal,
             });
-            if (!res.ok) throw new Error("Map API error");
+            if (!res.ok) {
+                const text = await res.text().catch(() => "");
+                throw new Error(`Map API error: ${res.status} ${text}`);
+            }
             const data = await res.json();
-            setPharmacies(data.pharmacies || []);
-            setAshaWorkers(data.asha_workers || []);
+
+            // Normalize and decode incoming data once to avoid per-render DOM decoding
+            const normalizedPharmacies: Pharmacy[] = Array.isArray(data.pharmacies)
+                ? data.pharmacies.map((p: Pharmacy) => ({
+                      ...p,
+                      name: decodeHtmlEntities(p.name),
+                      address: decodeHtmlEntities(p.address),
+                  }))
+                : [];
+
+            const normalizedAsha: AshaWorker[] = Array.isArray(data.asha_workers)
+                ? data.asha_workers.map((a: AshaWorker) => ({
+                      ...a,
+                      name: decodeHtmlEntities(a.name),
+                  }))
+                : [];
+
+            if (abortControllerRef.current === controller) {
+                setPharmacies(normalizedPharmacies);
+                setAshaWorkers(normalizedAsha);
+            }
         } catch (err) {
-            if (!(err instanceof DOMException && err.name === "AbortError")) setError("Unable to load data.");
+            if (!(err instanceof DOMException && err.name === "AbortError")) {
+                console.error("[MapView] Error loading nearby map data:", err);
+                setError("Unable to load nearby map data.");
+            }
         } finally {
             setLoading(false);
         }
@@ -86,9 +111,9 @@ export default function MapView() {
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 if (!mounted) return;
-                const { latitude, longitude } = pos.coords;
-                setUserLocation([latitude, longitude]);
-                void loadForCoords(latitude, longitude);
+                const { latitude: lat, longitude: lng } = pos.coords;
+                setUserLocation([lat, lng]);
+                void loadForCoords(lat, lng);
             },
             () => {
                 if (!mounted) return;
@@ -97,32 +122,130 @@ export default function MapView() {
                 void loadForCoords(fallback[0], fallback[1]);
             }
         );
-        return () => { mounted = false; abortControllerRef.current?.abort(); };
+        return () => {
+            mounted = false;
+            abortControllerRef.current?.abort();
+        };
     }, []);
 
-    // ... (rest of your component: decodeHtmlEntities and UI remains the same)
+    // decode simple HTML entities to reduce broken encoding artifacts in popups
+    function decodeHtmlEntities(input: string | null | undefined) {
+        if (!input) return "";
+        try {
+            if (!decodeTextareaRef.current) {
+                decodeTextareaRef.current = document.createElement("textarea");
+            }
+            decodeTextareaRef.current.innerHTML = input;
+            return decodeTextareaRef.current.value;
+        } catch {
+            return input;
+        }
+    }
 
     if (!userLocation || loading || error)
         return (
             <div className="p-8 text-center">
-                {error ? <div className="text-sm text-red-600">{error}</div> : <span>Loading map…</span>}
+                {error ? (
+                    <div className="text-sm text-red-600">{error}</div>
+                ) : loading ? (
+                    <span>Loading map…</span>
+                ) : (
+                    <span>Initializing map…</span>
+                )}
             </div>
         );
 
     return (
         <div className="flex flex-col gap-3">
-            {/* Filter toggles ... */}
+            {/* Filter toggles */}
+            <div className="flex gap-3">
+                <button
+                    onClick={() => setShowPharmacies((p) => !p)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium ${showPharmacies ? "bg-green-600 text-white" : "border-green-600 bg-white text-green-600"}`}
+                >
+                    🟢 Pharmacies
+                </button>
+                <button
+                    onClick={() => setShowAsha((a) => !a)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium ${showAsha ? "bg-blue-600 text-white" : "border-blue-600 bg-white text-blue-600"}`}
+                >
+                    🔵 ASHA Workers
+                </button>
+            </div>
+
+            <div className="rounded-lg border bg-white p-3 text-sm shadow-sm">
+                <div className="mb-2 font-semibold">Map Legend</div>
+
+                <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-green-600"></span>
+                    <span>Jan Aushadhi Kendra</span>
+                </div>
+
+                <div className="mt-1 flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-orange-500"></span>
+                    <span>Private Pharmacy</span>
+                </div>
+
+                <div className="mt-1 flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full bg-blue-600"></span>
+                    <span>ASHA Worker</span>
+                </div>
+            </div>
 
             {/* Map Container with the ref applied */}
             <div ref={mapContainerRef as any}>
-            <MapContainer
-                center={userLocation}
-                zoom={13}
-                style={{ height: "500px", width: "100%" }}
-            >
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                      {/* Markers ... */}
-            </MapContainer>
+                <MapContainer
+                    center={userLocation}
+                    zoom={13}
+                    style={{ height: "500px", width: "100%" }}
+                >
+                    <TileLayer
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                        attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
+                    />
+
+                    {showPharmacies &&
+                        pharmacies.map((p) => (
+                            <Marker
+                                key={`ph-${p.id}`}
+                                position={[p.lat, p.lng]}
+                                icon={p.type === "Jan Aushadhi" ? greenIcon : orangeIcon}
+                            >
+                                <Popup>
+                                    <strong>{p.name}</strong>
+                                    <br />
+                                    <strong>Type:</strong> {p.type}
+                                    <br />
+                                    <div className="flex items-center gap-1">
+                                        <span>Address: {p.address}</span>
+                                        <CopyButton text={p.address} className="h-4 w-4" />
+                                    </div>
+                                    Distance: {p.distance_km} km
+                                    <br />
+                                    {p.verified && (
+                                        <span className="text-green-600">✅ Verified</span>
+                                    )}
+                                </Popup>
+                            </Marker>
+                        ))}
+
+                    {showAsha &&
+                        ashaWorkers.map((a) => (
+                            <Marker key={`asha-${a.id}`} position={[a.lat, a.lng]} icon={blueIcon}>
+                                <Popup>
+                                    <strong>{a.name}</strong>
+                                    <br />
+                                    District: {a.district}
+                                    <br />
+                                    <div className="flex items-center gap-1">
+                                        <span>Contact: {a.contact}</span>
+                                        <CopyButton text={a.contact} className="h-4 w-4" />
+                                    </div>
+                                    Distance: {a.distance_km} km
+                                </Popup>
+                            </Marker>
+                        ))}
+                </MapContainer>
             </div>
         </div>
     );
