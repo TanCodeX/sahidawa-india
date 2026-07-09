@@ -15,8 +15,6 @@ import {
     ChevronRight,
 } from "lucide-react";
 
-type PharmacyStatus = "pending" | "approved" | "rejected";
-
 function getToken(): string {
     if (typeof window === "undefined") return "";
     return localStorage.getItem("sb-access-token") ?? "";
