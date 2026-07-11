@@ -345,7 +345,7 @@ def generate_post_with_gemini(pr: dict, tier_display: str, tier_desc: str) -> st
         "Write a highly engaging, concise LinkedIn post that mixes a 'Technical Deep Dive' with a 'Community Spotlight'.\n\n"
         "CRITICAL RULES FOR TONE AND VARIABILITY:\n"
         "- Hook the reader immediately! Start with a bold statement or a question about the technical challenge.\n"
-        "- Tell a story: What was the problem? How did the contributor architect the solution? Why does it matter for 1.4 billion Indians relying on SahiDawa?\n"
+        "- Tell a story: What was the problem? How did the contributor architect the solution? Why does it matter for Indians relying on SahiDawa? do not put it as it is put your own words based on the context and git diff provided\n"
         "- Be warm, appreciative, and celebrate the open-source community spirit (GSSoC).\n"
         "- Use short paragraphs (1-2 sentences) and professional emojis (🚀, 🛡️, ⚙️, 👏, 🔥) to make it highly readable and scroll-stopping.\n"
         "- STRICT LENGTH LIMIT: Keep the entire post under 200 words. Do NOT write long essays.\n"
