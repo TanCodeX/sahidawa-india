@@ -475,7 +475,7 @@ def generate_and_upload_image(pr: dict, access_token: str, org_urn: str) -> str 
 
     # Step 1 — Generate comic via Gemini Imagen API
     print("🎨 Requesting engineering comic from Gemini API...")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key={api_key}"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key={api_key}"
     payload = {
         "instances": [{"prompt": prompt}],
         "parameters": {
