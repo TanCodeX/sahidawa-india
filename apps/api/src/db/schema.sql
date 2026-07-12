@@ -239,3 +239,23 @@ CREATE TABLE IF NOT EXISTS public.wishlists (
 
 CREATE INDEX IF NOT EXISTS idx_wishlists_user_id ON public.wishlists(user_id);
 CREATE INDEX IF NOT EXISTS idx_wishlists_product_id ON public.wishlists(product_id);
+
+-- 11. Medicine Schedules
+CREATE TABLE IF NOT EXISTS public.medicine_schedules (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    medicine_id UUID REFERENCES public.medicines(id) ON DELETE SET NULL,
+    medicine_name TEXT NOT NULL,
+    dosage TEXT NOT NULL DEFAULT '1 tablet',
+    frequency INTEGER NOT NULL CHECK (frequency > 0),
+    times JSONB NOT NULL DEFAULT '[]'::jsonb,
+    start_date DATE NOT NULL,
+    end_date DATE,
+    notes TEXT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_medicine_schedules_user_id ON public.medicine_schedules(user_id);
+CREATE INDEX IF NOT EXISTS idx_medicine_schedules_active ON public.medicine_schedules(is_active) WHERE is_active = TRUE;
