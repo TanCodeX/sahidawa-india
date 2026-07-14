@@ -72,12 +72,10 @@ describe("Redis Caching and Drug Lookup Services", () => {
             await warmCache();
 
             expect(mockSupabase.from).toHaveBeenCalledWith("medicines");
-            expect(mockSupabase.or).toHaveBeenNthCalledWith(1);
+            expect(mockSupabase.or).toHaveBeenCalledTimes(1);
             expect(mockSupabase.or).toHaveBeenCalledWith(
-                expect.stringContaining("generic_name.in.")
+                expect.stringMatching(/generic_name\.in\..*brand_name\.in\./)
             );
-            expect(mockSupabase.or).toHaveBeenCalledWith(expect.stringContaining("brand_name.in."));
-            expect(mockSupabase.or).toHaveBeenNthCalledWith(2, "brand_name", expect.any(Array));
             expect(mockRedis.set).toHaveBeenCalledWith(
                 "drug:batch:BATCH-1",
                 JSON.stringify(mockMedicines[0]),

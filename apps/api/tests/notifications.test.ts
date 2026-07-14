@@ -107,13 +107,19 @@ import notificationsRouter from "../src/routes/notifications";
 import { computeTwilioSignature } from "../src/middleware/twilioSignature";
 
 describe("notifications routes", () => {
-    const app = express();
+    let app: express.Express;
+    let server: ReturnType<typeof express> extends { listen: (...args: any[]) => infer R }
+        ? R
+        : any;
 
     beforeAll(() => {
+        app = express();
         app.use(express.json());
         app.use(express.urlencoded({ extended: true }));
         app.use("/api/notifications", notificationsRouter);
     });
+
+    afterAll(() => {});
 
     beforeEach(() => {
         jest.clearAllMocks();

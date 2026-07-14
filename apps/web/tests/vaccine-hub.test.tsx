@@ -112,7 +112,9 @@ describe("VaccineHubPage Integration Tests", () => {
 
         await user.click(screen.getByRole("button", { name: /mark BCG completed/i }));
 
-        expect(screen.getByRole("button", { name: /mark BCG due/i })).toBeInTheDocument();
+        await waitFor(() => {
+            expect(screen.getByRole("button", { name: /mark BCG due/i })).toBeInTheDocument();
+        });
     });
 
     it("persists child tracker state to localStorage when signed out", async () => {
@@ -294,7 +296,7 @@ describe("VaccineHubPage Integration Tests", () => {
         expect(screen.getByText("Please enter a valid date.")).toBeInTheDocument();
 
         // Clear and type a real one
-        await user.type(dateInput, "");
+        await user.clear(dateInput);
         await user.type(dateInput, "28022026");
 
         await waitFor(() => {

@@ -9,6 +9,15 @@ jest.mock("../src/db/client", () => ({
     },
 }));
 
+jest.mock("../src/utils/logger", () => ({
+    error: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+}));
+
+import logger from "../src/utils/logger";
+
 const rpcMock = supabase.rpc as jest.Mock;
 
 function buildApp() {
@@ -130,8 +139,6 @@ describe("GET /api/map/nearby", () => {
     });
 
     it("returns 500 when a Supabase RPC reports an error", async () => {
-        const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => undefined);
-
         try {
             rpcMock.mockResolvedValueOnce({
                 data: null,
@@ -144,11 +151,15 @@ describe("GET /api/map/nearby", () => {
 
             expect(response.status).toBe(500);
             expect(response.body).toEqual({ error: "Internal server error" });
-            expect(consoleErrorSpy).toHaveBeenCalledWith({
-                message: "PostGIS function unavailable",
-            });
+            expect(logger.error).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    message: "Error fetching nearby facilities",
+                    error: { message: "PostGIS function unavailable" },
+                })
+            );
         } finally {
-            consoleErrorSpy.mockRestore();
+            // No need to restore since it's a globally mocked module, but clear it
+            (logger.error as jest.Mock).mockClear();
         }
     });
 });

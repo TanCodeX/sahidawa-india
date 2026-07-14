@@ -12,10 +12,31 @@ afterEach(() => {
     cleanup();
 });
 
-// Help JSDOM/React scheduler clear out pending MessagePort timers
-afterAll(() => {
-    return new Promise((resolve) => setTimeout(resolve, 0));
-});
+// Help JSDOM/React scheduler clear out pending MessagePort timers by mocking MessageChannel
+class MockMessageChannel {
+    port1: any;
+    port2: any;
+    constructor() {
+        this.port1 = {
+            onmessage: null,
+            close: () => {},
+        };
+        this.port2 = {
+            postMessage: () => {
+                setTimeout(() => {
+                    if (this.port1.onmessage) {
+                        this.port1.onmessage();
+                    }
+                }, 0);
+            },
+            close: () => {},
+        };
+    }
+}
+(global as any).MessageChannel = MockMessageChannel;
+if (typeof window !== "undefined") {
+    (window as any).MessageChannel = MockMessageChannel;
+}
 
 const clonePolyfill = (value: any) => JSON.parse(JSON.stringify(value));
 if (!(globalThis as any).structuredClone) {
@@ -115,4 +136,13 @@ if (typeof HTMLCanvasElement !== "undefined" && !HTMLCanvasElement.prototype.toB
 // Polyfill scrollIntoView for JSDOM
 if (typeof window !== "undefined" && window.Element) {
     window.Element.prototype.scrollIntoView = () => {};
+}
+
+// Polyfill crypto.randomUUID for JSDOM
+import { randomUUID } from "crypto";
+if (typeof window !== "undefined" && window.crypto && !window.crypto.randomUUID) {
+    window.crypto.randomUUID = randomUUID;
+}
+if (typeof global !== "undefined" && (global as any).crypto && !(global as any).crypto.randomUUID) {
+    (global as any).crypto.randomUUID = randomUUID;
 }

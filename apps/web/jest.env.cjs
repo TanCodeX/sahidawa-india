@@ -9,7 +9,7 @@ process.env.NODE_ENV = "test";
 
 const { TextDecoder, TextEncoder } = require("util");
 const { ReadableStream } = require("stream/web");
-const { MessageChannel, MessagePort } = require("worker_threads");
+const { MessagePort } = require("worker_threads");
 if (typeof global.TextDecoder === "undefined") {
     global.TextDecoder = TextDecoder;
 }
@@ -22,8 +22,32 @@ if (typeof global.ReadableStream === "undefined") {
 if (typeof global.MessagePort === "undefined") {
     global.MessagePort = MessagePort;
 }
+
+// Mock MessageChannel to avoid open handles from worker_threads
+class MockMessageChannel {
+    constructor() {
+        this.port1 = {
+            onmessage: null,
+            close: () => {},
+        };
+        this.port2 = {
+            postMessage: () => {
+                setTimeout(() => {
+                    if (this.port1.onmessage) {
+                        this.port1.onmessage();
+                    }
+                }, 0);
+            },
+            close: () => {},
+        };
+    }
+}
+
 if (typeof global.MessageChannel === "undefined") {
-    global.MessageChannel = MessageChannel;
+    global.MessageChannel = MockMessageChannel;
+}
+if (typeof globalThis.MessageChannel === "undefined") {
+    globalThis.MessageChannel = MockMessageChannel;
 }
 
 const undici = require("undici");

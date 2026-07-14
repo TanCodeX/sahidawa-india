@@ -142,9 +142,9 @@ describe("MedicineSearchSelect", () => {
         const input = screen.getByRole("combobox");
 
         await user.type(input, "xyz");
-
-        jest.advanceTimersByTime(300);
-
+        await act(async () => {
+            jest.advanceTimersByTime(300);
+        });
         await waitFor(() => {
             expect(onSearch).toHaveBeenCalled();
         });

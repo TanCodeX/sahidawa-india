@@ -15,7 +15,7 @@ module.exports = {
     setupFilesAfterEnv: ["<rootDir>/tests/setupTests.ts"],
     roots: ["<rootDir>/tests"],
     testPathIgnorePatterns: ["<rootDir>/tests/e2e/"],
-    transformIgnorePatterns: ["/node_modules/(?!(nuqs|next-intl|@next/third-parties|uncrypto|@upstash/redis)/)"],
+    transformIgnorePatterns: ["/node_modules/(?!(nuqs|next-intl|@next/third-parties|uncrypto|@upstash/redis|jspdf|jspdf-autotable)/)"],
     moduleNameMapper: {
         "\\.css$": "<rootDir>/tests/mocks/styleMock.ts",
         "^leaflet$": "<rootDir>/tests/mocks/leaflet.ts",

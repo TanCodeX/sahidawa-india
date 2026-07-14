@@ -10,6 +10,15 @@ jest.mock("../src/utils/logger", () => ({
     },
 }));
 
+jest.mock("../src/db/client", () => ({
+    supabase: {
+        from: jest.fn().mockReturnValue({
+            upsert: jest.fn().mockResolvedValue({ error: null }),
+            insert: jest.fn().mockResolvedValue({ error: null }),
+        }),
+    },
+}));
+
 const fetchMock = jest.fn();
 const { publicKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
 const testPublicKey = publicKey
@@ -120,7 +129,9 @@ describe("ABHA service ABDM sandbox integration", () => {
             )
             .mockResolvedValueOnce(jsonResponse(200, { token: "abha-login-token" }));
 
-        await expect(verifyOTP("otp-txn-id", "123456")).resolves.toEqual({
+        await expect(
+            verifyOTP("test-user-id", "test@sbx", "otp-txn-id", "123456")
+        ).resolves.toEqual({
             token: "abha-login-token",
         });
 

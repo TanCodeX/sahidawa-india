@@ -49,7 +49,16 @@ const malformedMedicine = { ...validMedicine } as Record<string, unknown>;
 delete malformedMedicine.generic_name;
 
 describe("triage routes response validation", () => {
-    const app = buildApp();
+    let app: express.Express;
+    let server: ReturnType<typeof express> extends { listen: (...args: any[]) => infer R }
+        ? R
+        : any;
+
+    beforeAll(() => {
+        app = buildApp();
+    });
+
+    afterAll(() => {});
 
     beforeEach(() => {
         jest.clearAllMocks();

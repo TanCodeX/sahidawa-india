@@ -58,9 +58,7 @@ describe("PATCH /api/v1/admin/reports/:id/status — district_alerts upsert", ()
                     select: jest.fn().mockReturnValue({
                         eq: jest.fn().mockReturnValue({
                             eq: jest.fn().mockReturnValue({
-                                eq: jest.fn().mockReturnValue({
-                                    eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
-                                }),
+                                eq: jest.fn().mockResolvedValue({ count: 5, error: null }),
                             }),
                         }),
                     }),
@@ -139,9 +137,7 @@ describe("PATCH /api/v1/admin/reports/:id/status — district_alerts upsert", ()
                     select: jest.fn().mockReturnValue({
                         eq: jest.fn().mockReturnValue({
                             eq: jest.fn().mockReturnValue({
-                                eq: jest.fn().mockReturnValue({
-                                    eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
-                                }),
+                                eq: jest.fn().mockResolvedValue({ count: 2, error: null }),
                             }),
                         }),
                     }),
