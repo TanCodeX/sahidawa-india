@@ -25,6 +25,9 @@ langchain-core>=0.1.0
 # thefuzz for fuzzy string matching
 thefuzz==0.22.1
 
+# TensorFlow Lite Inference
+tflite-runtime>=2.14.0
+
 # ASR (Speech-to-Text)
 faster-whisper>=1.1.0
 openai-whisper>=20240930
