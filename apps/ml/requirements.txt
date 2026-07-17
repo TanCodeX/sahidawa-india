@@ -20,7 +20,7 @@ pdfplumber>=0.11.0          # Extract tables from government PDFs
 
 # LLM Parsing
 langchain-google-genai>=1.0.0
-langchain-core>=1.2.22
+langchain-core>=1.3.3
 
 # thefuzz for fuzzy string matching
 thefuzz==0.22.1
