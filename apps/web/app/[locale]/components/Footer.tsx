@@ -83,10 +83,10 @@ export default function Footer() {
 
                     {/* Quick Links */}
                     <nav className="md:col-span-2">
-                        <h3 className="mb-3 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
+                        <h3 className="mb-2 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
                             {t("quickLinks.title")}
                         </h3>
-                        <ul className="space-y-1.5">
+                        <ul className="space-y-1">
                             {quickLinks.map((link) => (
                                 <li key={link.href}>
                                     <Link
@@ -113,10 +113,10 @@ export default function Footer() {
 
                     {/* Resources */}
                     <nav className="md:col-span-2">
-                        <h3 className="mb-3 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
+                        <h3 className="mb-2 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
                             {t("resources.title")}
                         </h3>
-                        <ul className="space-y-1.5">
+                        <ul className="space-y-1">
                             {resourceLinks.map((link) => (
                                 <li key={link.href}>
                                     <a
@@ -135,7 +135,7 @@ export default function Footer() {
 
                     {/* Connect Section */}
                     <div className="md:col-span-3">
-                        <h3 className="mb-3 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
+                        <h3 className="mb-2 text-xs font-bold tracking-wider text-slate-900 uppercase dark:text-white">
                             {t("connectWithUs")}
                         </h3>
                         <div className="mb-4 flex items-center gap-2">

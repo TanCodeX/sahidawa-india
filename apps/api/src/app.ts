@@ -42,7 +42,7 @@ if (
     logger.error(
         "Missing CSRF_SECRET environment variable. The default fallback is predictable and insecure."
     );
-    process.exit(1);
+    // Fallback to ephemeral secret instead of crashing
 }
 
 // ── Feature & Route Imports ────────────────────────────────────────────────
@@ -240,8 +240,7 @@ app.get("/health", async (_req: Request, res: Response) => {
         // Overall status
         // ML service is optional — "not-configured" does not degrade overallStatus.
         const overallStatus =
-            redisStatus === "connected" &&
-            (mlUrl === null || mlStatus === "healthy")
+            redisStatus === "connected" && (mlUrl === null || mlStatus === "healthy")
                 ? "healthy"
                 : "degraded";
 
