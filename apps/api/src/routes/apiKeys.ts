@@ -3,6 +3,7 @@ import crypto, { pbkdf2 } from "crypto";
 import { promisify } from "util";
 import { requireApiKey, ApiKeyRequest } from "../middleware/apiKeyAuth";
 import { requireAuth, AuthenticatedRequest } from "../middleware/auth";
+import { apiKeyLimiter } from "../middleware/rateLimit";
 import { supabase } from "../db/client";
 import logger from "../utils/logger";
 
@@ -31,7 +32,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  *       500:
  *         description: Internal server error
  */
-router.post("/rotate", requireApiKey, async (req: ApiKeyRequest, res: Response) => {
+router.post("/rotate", apiKeyLimiter, requireApiKey, async (req: ApiKeyRequest, res: Response) => {
     try {
         const keyId = req.apiKey?.keyId;
         if (!keyId) {
@@ -97,7 +98,7 @@ router.post("/rotate", requireApiKey, async (req: ApiKeyRequest, res: Response) 
  *       500:
  *         description: Internal server error
  */
-router.get("/", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
+router.get("/", apiKeyLimiter, requireAuth, async (req: AuthenticatedRequest, res: Response) => {
     const userId = req.user?.id;
     if (!userId) {
         res.status(401).json({ error: "Unauthorized" });
@@ -148,50 +149,55 @@ router.get("/", requireAuth, async (req: AuthenticatedRequest, res: Response) =>
  *       500:
  *         description: Internal server error
  */
-router.post("/:id/revoke", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user?.id;
-    if (!userId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-    }
-
-    const { id } = req.params;
-    if (typeof id !== "string" || !UUID_RE.test(id)) {
-        res.status(404).json({ error: "API key not found" });
-        return;
-    }
-
-    try {
-        // Scope to the caller's own rows. The service-role client bypasses RLS,
-        // so ownership must be enforced here with the user_id filter.
-        const { data, error } = await supabase
-            .from("api_keys")
-            .update({ is_active: false })
-            .eq("id", id)
-            .eq("user_id", userId)
-            .select("id")
-            .maybeSingle();
-
-        if (error) {
-            logger.error("Failed to revoke API key", { error, keyId: id, userId });
-            res.status(500).json({ error: "Internal server error" });
+router.post(
+    "/:id/revoke",
+    apiKeyLimiter,
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ error: "Unauthorized" });
             return;
         }
 
-        if (!data) {
-            // Unknown id or a key owned by someone else — the two are not
-            // distinguished so key ownership is not leaked.
+        const { id } = req.params;
+        if (typeof id !== "string" || !UUID_RE.test(id)) {
             res.status(404).json({ error: "API key not found" });
             return;
         }
 
-        logger.info("API key revoked", { keyId: id, userId });
-        res.status(200).json({ message: "API key revoked", keyId: id });
-    } catch (error) {
-        logger.error("Unexpected error revoking API key", { error });
-        res.status(500).json({ error: "Internal server error" });
+        try {
+            // Scope to the caller's own rows. The service-role client bypasses RLS,
+            // so ownership must be enforced here with the user_id filter.
+            const { data, error } = await supabase
+                .from("api_keys")
+                .update({ is_active: false })
+                .eq("id", id)
+                .eq("user_id", userId)
+                .select("id")
+                .maybeSingle();
+
+            if (error) {
+                logger.error("Failed to revoke API key", { error, keyId: id, userId });
+                res.status(500).json({ error: "Internal server error" });
+                return;
+            }
+
+            if (!data) {
+                // Unknown id or a key owned by someone else — the two are not
+                // distinguished so key ownership is not leaked.
+                res.status(404).json({ error: "API key not found" });
+                return;
+            }
+
+            logger.info("API key revoked", { keyId: id, userId });
+            res.status(200).json({ message: "API key revoked", keyId: id });
+        } catch (error) {
+            logger.error("Unexpected error revoking API key", { error });
+            res.status(500).json({ error: "Internal server error" });
+        }
     }
-});
+);
 
 /**
  * @swagger
@@ -217,45 +223,50 @@ router.post("/:id/revoke", requireAuth, async (req: AuthenticatedRequest, res: R
  *       500:
  *         description: Internal server error
  */
-router.delete("/:id", requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-    const userId = req.user?.id;
-    if (!userId) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-    }
-
-    const { id } = req.params;
-    if (typeof id !== "string" || !UUID_RE.test(id)) {
-        res.status(404).json({ error: "API key not found" });
-        return;
-    }
-
-    try {
-        const { data, error } = await supabase
-            .from("api_keys")
-            .delete()
-            .eq("id", id)
-            .eq("user_id", userId)
-            .select("id")
-            .maybeSingle();
-
-        if (error) {
-            logger.error("Failed to delete API key", { error, keyId: id, userId });
-            res.status(500).json({ error: "Internal server error" });
+router.delete(
+    "/:id",
+    apiKeyLimiter,
+    requireAuth,
+    async (req: AuthenticatedRequest, res: Response) => {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ error: "Unauthorized" });
             return;
         }
 
-        if (!data) {
+        const { id } = req.params;
+        if (typeof id !== "string" || !UUID_RE.test(id)) {
             res.status(404).json({ error: "API key not found" });
             return;
         }
 
-        logger.info("API key deleted", { keyId: id, userId });
-        res.status(200).json({ message: "API key deleted", keyId: id });
-    } catch (error) {
-        logger.error("Unexpected error deleting API key", { error });
-        res.status(500).json({ error: "Internal server error" });
+        try {
+            const { data, error } = await supabase
+                .from("api_keys")
+                .delete()
+                .eq("id", id)
+                .eq("user_id", userId)
+                .select("id")
+                .maybeSingle();
+
+            if (error) {
+                logger.error("Failed to delete API key", { error, keyId: id, userId });
+                res.status(500).json({ error: "Internal server error" });
+                return;
+            }
+
+            if (!data) {
+                res.status(404).json({ error: "API key not found" });
+                return;
+            }
+
+            logger.info("API key deleted", { keyId: id, userId });
+            res.status(200).json({ message: "API key deleted", keyId: id });
+        } catch (error) {
+            logger.error("Unexpected error deleting API key", { error });
+            res.status(500).json({ error: "Internal server error" });
+        }
     }
-});
+);
 
 export default router;
