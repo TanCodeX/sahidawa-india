@@ -19,11 +19,14 @@ logging.basicConfig(level=logging.INFO)
 
 CDSCO_ALERTS_URL = "https://cdsco.gov.in/opencms/opencms/en/Notifications/Alerts/"
 
-API_BASE_URL = os.getenv("API_BASE_URL", "").strip().rstrip("/")
-API_SECRET_KEY = os.getenv("API_SECRET_KEY")
+SUPABASE_URL = os.getenv("SUPABASE_URL", "").strip().rstrip("/")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
-INGEST_API_URL = API_BASE_URL + "/api/v1/alerts/ingest" if API_BASE_URL else ""
-ALERTS_API_URL = API_BASE_URL + "/api/v1/alerts" if API_BASE_URL else ""
+if SUPABASE_URL and SUPABASE_KEY:
+    from supabase import create_client
+    supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+else:
+    supabase_client = None
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 try:
@@ -205,10 +208,11 @@ def deduplicate_alerts_with_keys(pending_alerts_map: dict):
             new_alerts_map[key] = a
             continue
         try:
+            if not supabase_client:
+                raise Exception("Supabase client not initialized")
             # Query by batch_number specifically
-            response = requests.get(ALERTS_API_URL, params={"batch_number": batch, "limit": 1}, timeout=10)
-            response.raise_for_status()
-            existing = response.json().get("data", [])
+            res = supabase_client.table("drug_alerts").select("id").eq("batch_number", batch).limit(1).execute()
+            existing = getattr(res, "data", [])
             if not existing:
                 new_alerts_map[key] = a
             else:
@@ -225,30 +229,47 @@ def deduplicate_alerts_with_keys(pending_alerts_map: dict):
 
 
 def ingest_alerts(alerts: list):
-    headers = {
-        "Content-Type": "application/json",
-        "x-api-secret": API_SECRET_KEY
-    }
-    
-    payload = {
-        "alerts": alerts
-    }
-    
+    if not supabase_client:
+        logging.error("Cannot ingest: Supabase client not initialized.")
+        return False
+        
     try:
-        response = requests.post(INGEST_API_URL, json=payload, headers=headers)
-        response.raise_for_status()
-        logging.info("Successfully ingested alerts to the gateway.")
+        # Upsert drug_alerts directly
+        # Strip proof_image_url if it exists to avoid schema cache issues
+        for a in alerts:
+            a.pop("proof_image_url", None)
+        res = supabase_client.table("drug_alerts").upsert(
+            alerts,
+            on_conflict="batch_number,manufacturer,reported_brand_name"
+        ).execute()
+        logging.info(f"Successfully ingested {len(alerts)} alerts to Supabase directly.")
+        
+        # Update matching batches in medicines table
+        updated_count = 0
+        for alert in alerts:
+            batch = alert.get("batch_number")
+            if batch:
+                m_res = supabase_client.table("medicines").update({
+                    "status": "recalled",
+                    "is_counterfeit_alert": True
+                }).eq("batch_number", batch).execute()
+                if getattr(m_res, "data", []):
+                    updated_count += len(m_res.data)
+                    
+        if updated_count > 0:
+            logging.info(f"Marked {updated_count} medicines as recalled based on matching batch numbers.")
+            
         return True
-    except requests.RequestException as e:
-        logging.error(f"Failed to ingest alerts: {e}")
+    except Exception as e:
+        logging.error(f"Failed to ingest alerts via Supabase: {e}")
         return False
 
 if __name__ == "__main__":
-    if not API_BASE_URL:
-        logging.error("API_BASE_URL is not set in environment. Exiting.")
+    if not SUPABASE_URL:
+        logging.error("SUPABASE_URL is not set in environment. Exiting.")
         sys.exit(1)
-    if not API_SECRET_KEY:
-        logging.error("API_SECRET_KEY is not set in environment. Exiting.")
+    if not SUPABASE_KEY:
+        logging.error("SUPABASE_SERVICE_ROLE_KEY is not set in environment. Exiting.")
         sys.exit(1)
     
     # Bypassed Redis for local test
