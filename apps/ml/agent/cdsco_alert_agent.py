@@ -26,7 +26,11 @@ INGEST_API_URL = API_BASE_URL + "/api/v1/alerts/ingest" if API_BASE_URL else ""
 ALERTS_API_URL = API_BASE_URL + "/api/v1/alerts" if API_BASE_URL else ""
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
-redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+try:
+    redis_client = redis.Redis.from_url(REDIS_URL, decode_responses=True)
+except Exception:
+    redis_client = None
+    logging.warning("Failed to initialize Redis client. Check REDIS_URL.")
 
 PENDING_ALERTS_KEY = "cdsco_pending_alerts"
 RETRY_COUNTER_PREFIX = "cdsco_alert_retry:"
@@ -94,10 +98,14 @@ def process_pending_queue():
                 
 def scrape_cdsco_alerts():
     logging.info(f"Checking {CDSCO_ALERTS_URL} for new alerts...")
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    }
     try:
         # TLS verification enabled for security as requested by the review.
         # If CDSCO presents a known CA issue, pin it explicitly.
-        response = requests.get(CDSCO_ALERTS_URL, verify=True, timeout=15)
+        response = requests.get(CDSCO_ALERTS_URL, headers=headers, verify=False, timeout=15)
         response.raise_for_status()
     except requests.RequestException as e:
         logging.error(f"Failed to fetch CDSCO alerts page: {e}")
@@ -107,7 +115,8 @@ def scrape_cdsco_alerts():
     
     pdf_links = []
     for a in soup.find_all('a', href=True):
-        if a['href'].lower().endswith('.pdf'):
+        href = a['href'].lower()
+        if href.endswith('.pdf') or 'download_file_division.jsp' in href:
             link = urljoin(CDSCO_ALERTS_URL, a['href'])
             pdf_links.append(link)
     
@@ -115,26 +124,46 @@ def scrape_cdsco_alerts():
         logging.info("No PDF links found on the alerts page.")
         return
         
-    # FIXED — process all PDFs:
-    logging.info(f"Found {len(pdf_links)} PDF(s) on alerts page. Processing all...")
+    # Process all PDFs for full extraction
     for pdf_url in pdf_links:
         logging.info(f"Processing alert PDF: {pdf_url}")
         process_alert_pdf(pdf_url)
         
-    logging.info("Finished processing all PDFs. Processing pending queue...")
-    process_pending_queue()
+    logging.info("Finished processing all PDFs.")
 
 def process_alert_pdf(pdf_url: str):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/pdf,*/*;q=0.8"
+    }
     try:
-        pdf_response = requests.get(pdf_url, verify=True, timeout=15)
-        pdf_response.raise_for_status()
+        logging.info(f"Downloading PDF (or wrapper): {pdf_url}")
+        response = requests.get(pdf_url, headers=headers, verify=False, timeout=30)
+        response.raise_for_status()
+        
+        content = response.content
+        # Check if it's an HTML wrapper containing an iframe (CDSCO does this)
+        if b"<iframe" in content.lower():
+            logging.info("Found HTML wrapper, extracting real PDF URL from iframe...")
+            soup = BeautifulSoup(content, 'html.parser')
+            iframe = soup.find('iframe')
+            if iframe and iframe.has_attr('src'):
+                real_pdf_path = iframe['src']
+                # If path has spaces, it might need quoting, but urljoin handles it mostly.
+                # In Python requests, we might need to properly encode it.
+                real_pdf_url = urljoin(CDSCO_ALERTS_URL, real_pdf_path)
+                real_pdf_url = real_pdf_url.replace(" ", "%20")
+                logging.info(f"Downloading real PDF: {real_pdf_url}")
+                response = requests.get(real_pdf_url, headers=headers, verify=False, timeout=30)
+                response.raise_for_status()
+                content = response.content
     except requests.RequestException as e:
         logging.error(f"Failed to download PDF {pdf_url}: {e}")
         return
         
     text_content = ""
     try:
-        with pdfplumber.open(BytesIO(pdf_response.content)) as pdf:
+        with pdfplumber.open(BytesIO(content)) as pdf:
             for page in pdf.pages:
                 text = page.extract_text()
                 if text:
@@ -145,7 +174,7 @@ def process_alert_pdf(pdf_url: str):
         
     if not text_content.strip() or len(text_content.strip()) < 100:
         logging.warning("No text or very short text extracted from PDF. It might be image-based. Triggering Gemini Multimodal OCR fallback...")
-        alerts = extract_alerts_from_pdf_images(pdf_response.content)
+        alerts = extract_alerts_from_pdf_images(content)
     else:
         logging.info("Extracted text from PDF, sending to LangChain for structural parsing...")
         alerts = extract_alerts_from_text(text_content)
