@@ -53,6 +53,10 @@ const app = express();
 app.use(express.json());
 app.use("/api/keys", apiKeysRouter);
 
+// A canonical uuid — the `id` column is a Postgres uuid, so the revoke/delete
+// routes reject anything that isn't one before touching the database.
+const VALID_ID = "11111111-1111-1111-1111-111111111111";
+
 beforeEach(() => {
     jest.clearAllMocks();
     mockState.orderResult = { data: [], error: null };
@@ -85,14 +89,16 @@ describe("GET /api/keys", () => {
 
 describe("POST /api/keys/:id/revoke", () => {
     it("marks the key inactive, scoped to the caller", async () => {
-        mockState.maybeSingleResult = { data: { id: "k1" }, error: null };
+        mockState.maybeSingleResult = { data: { id: VALID_ID }, error: null };
 
-        const res = await request(app).post("/api/keys/k1/revoke").set("x-test-user", "user-1");
+        const res = await request(app)
+            .post(`/api/keys/${VALID_ID}/revoke`)
+            .set("x-test-user", "user-1");
 
         expect(res.status).toBe(200);
-        expect(res.body).toEqual({ message: "API key revoked", keyId: "k1" });
+        expect(res.body).toEqual({ message: "API key revoked", keyId: VALID_ID });
         expect(mockSupabase.update).toHaveBeenCalledWith({ is_active: false });
-        expect(mockSupabase.eq).toHaveBeenCalledWith("id", "k1");
+        expect(mockSupabase.eq).toHaveBeenCalledWith("id", VALID_ID);
         expect(mockSupabase.eq).toHaveBeenCalledWith("user_id", "user-1");
     });
 
@@ -100,18 +106,28 @@ describe("POST /api/keys/:id/revoke", () => {
         mockState.maybeSingleResult = { data: null, error: null };
 
         const res = await request(app)
-            .post("/api/keys/someone-elses/revoke")
+            .post(`/api/keys/${VALID_ID}/revoke`)
             .set("x-test-user", "user-1");
 
         expect(res.status).toBe(404);
+    });
+
+    it("returns 404 for a malformed id without querying the database", async () => {
+        const res = await request(app)
+            .post("/api/keys/not-a-uuid/revoke")
+            .set("x-test-user", "user-1");
+
+        expect(res.status).toBe(404);
+        // The bad id must never reach Postgres (where it would 500 on the uuid cast).
+        expect(mockSupabase.update).not.toHaveBeenCalled();
     });
 });
 
 describe("DELETE /api/keys/:id", () => {
     it("deletes the caller's key", async () => {
-        mockState.maybeSingleResult = { data: { id: "k1" }, error: null };
+        mockState.maybeSingleResult = { data: { id: VALID_ID }, error: null };
 
-        const res = await request(app).delete("/api/keys/k1").set("x-test-user", "user-1");
+        const res = await request(app).delete(`/api/keys/${VALID_ID}`).set("x-test-user", "user-1");
 
         expect(res.status).toBe(200);
         expect(mockSupabase.delete).toHaveBeenCalled();
@@ -121,9 +137,16 @@ describe("DELETE /api/keys/:id", () => {
     it("returns 404 when the key does not belong to the caller", async () => {
         mockState.maybeSingleResult = { data: null, error: null };
 
-        const res = await request(app).delete("/api/keys/nope").set("x-test-user", "user-1");
+        const res = await request(app).delete(`/api/keys/${VALID_ID}`).set("x-test-user", "user-1");
 
         expect(res.status).toBe(404);
+    });
+
+    it("returns 404 for a malformed id without querying the database", async () => {
+        const res = await request(app).delete("/api/keys/not-a-uuid").set("x-test-user", "user-1");
+
+        expect(res.status).toBe(404);
+        expect(mockSupabase.delete).not.toHaveBeenCalled();
     });
 });
 

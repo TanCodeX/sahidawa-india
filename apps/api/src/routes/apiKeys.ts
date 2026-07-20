@@ -9,6 +9,12 @@ import logger from "../utils/logger";
 const router = Router();
 const pbkdf2Async = promisify(pbkdf2);
 
+// The `id` column is a Postgres uuid, which rejects a non-uuid value with a
+// syntax error (22P02) that would otherwise surface as a 500. Validating the
+// shape here keeps malformed input on the 404 path instead — the same response
+// an unknown id gets — so user input never reaches the 500 branch.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * @swagger
  * /api/keys/rotate:
@@ -150,6 +156,10 @@ router.post("/:id/revoke", requireAuth, async (req: AuthenticatedRequest, res: R
     }
 
     const { id } = req.params;
+    if (typeof id !== "string" || !UUID_RE.test(id)) {
+        res.status(404).json({ error: "API key not found" });
+        return;
+    }
 
     try {
         // Scope to the caller's own rows. The service-role client bypasses RLS,
@@ -215,6 +225,10 @@ router.delete("/:id", requireAuth, async (req: AuthenticatedRequest, res: Respon
     }
 
     const { id } = req.params;
+    if (typeof id !== "string" || !UUID_RE.test(id)) {
+        res.status(404).json({ error: "API key not found" });
+        return;
+    }
 
     try {
         const { data, error } = await supabase
