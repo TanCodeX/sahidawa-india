@@ -94,9 +94,9 @@ def load_and_prep_data():
     train_ds = train_ds.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
     val_ds = val_ds.cache().prefetch(buffer_size=AUTOTUNE)
 
-    return train_ds, val_ds
+    return train_ds, val_ds, len(class_names)
 
-def fine_tune_model(train_ds, val_ds, dry_run=False):
+def fine_tune_model(train_ds, val_ds, num_classes, dry_run=False):
     print(f"Loading base model from {MODEL_PATH}...")
     base_model = tf.keras.models.load_model(MODEL_PATH)
     
@@ -104,7 +104,12 @@ def fine_tune_model(train_ds, val_ds, dry_run=False):
     for layer in base_model.layers[:-10]:
         layer.trainable = False
 
-    base_model.compile(
+    # Pop last layer and append new Dense layer for the new num_classes
+    x = base_model.layers[-2].output
+    outputs = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
+    model = tf.keras.Model(inputs=base_model.inputs, outputs=outputs)
+
+    model.compile(
         optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
         loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=False),
         metrics=['accuracy']
@@ -112,18 +117,18 @@ def fine_tune_model(train_ds, val_ds, dry_run=False):
 
     if dry_run:
         print("Dry run enabled. Skipping training.")
-        return base_model
+        return model
 
     print("Starting fine-tuning...")
-    history = base_model.fit(
+    history = model.fit(
         train_ds,
         validation_data=val_ds,
         epochs=EPOCHS
     )
 
     print(f"Saving fine-tuned model to {OUTPUT_MODEL_PATH}...")
-    base_model.save(OUTPUT_MODEL_PATH)
-    return base_model
+    model.save(OUTPUT_MODEL_PATH)
+    return model
 
 def main():
     parser = argparse.ArgumentParser(description="Fine-tune model on Cloudinary dataset")
@@ -137,8 +142,8 @@ def main():
         fetch_cloudinary_dataset(args.tag_real, args.tag_fake)
 
     try:
-        train_ds, val_ds = load_and_prep_data()
-        fine_tune_model(train_ds, val_ds, dry_run=args.dry_run)
+        train_ds, val_ds, num_classes = load_and_prep_data()
+        fine_tune_model(train_ds, val_ds, num_classes, dry_run=args.dry_run)
     except Exception as e:
         print(f"Fine-tuning failed: {e}")
 
