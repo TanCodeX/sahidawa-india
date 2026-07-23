@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { ChatMarkdown } from "@/app/components/ChatMarkdown";
 
 // ─── ChatBubble ────────────────────────────────────────────────────────────────
@@ -109,13 +110,20 @@ export function ChatBubble({ msg, onRetry }: ChatBubbleProps) {
                 <span className="sr-only">{isUser ? "You" : "SahiDawa"} said:</span>
 
                 <div
-                    className={`rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                    className={cn(
+                        "rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm",
                         msg.isError
-                            ? "rounded-bl-sm border border-red-200/50 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30"
+                            ? cn(
+                                  "rounded-bl-sm border border-red-200/50 bg-red-50",
+                                  "dark:border-red-900/50 dark:bg-red-950/30"
+                              )
                             : isUser
                               ? "rounded-br-sm bg-linear-to-r from-emerald-500 to-teal-500 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]"
-                              : "rounded-bl-sm border border-white/40 bg-white/50 text-slate-800 backdrop-blur-xl dark:border-white/10 dark:bg-slate-800/50 dark:text-slate-200"
-                    }`}
+                              : cn(
+                                    "rounded-bl-sm border border-white/40 bg-white/50 text-slate-800 backdrop-blur-xl",
+                                    "dark:border-white/10 dark:bg-slate-800/50 dark:text-slate-200"
+                                )
+                    )}
                 >
                     {msg.isError ? (
                         <ErrorContent onRetry={onRetry} msgId={msg.id} errorMsg={msg.content} />
