@@ -173,8 +173,8 @@ function buildVoiceTriagePrompt(transcript: string, responseLanguage: string) {
     ].join("\n");
 }
 
-function getAiClient() {
-    return new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+function getAiClient(apiKey: string) {
+    return new GoogleGenAI({ apiKey });
 }
 
 export async function POST(req: Request) {
@@ -191,7 +191,7 @@ export async function POST(req: Request) {
             );
         }
 
-        const geminiKey = process.env.GEMINI_API_KEY?.trim();
+        const geminiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY)?.trim();
 
         if (!geminiKey || geminiKey === "your_gemini_api_key") {
             structuredLog({
@@ -203,11 +203,11 @@ export async function POST(req: Request) {
             });
 
             return NextResponse.json(
-                { error: "AI services are currently unconfigured" },
+                { error: "AI services are currently unconfigured (Missing API Key on Deployment)" },
                 { status: 500 }
             );
         }
-        const ai = getAiClient();
+        const ai = getAiClient(geminiKey);
 
         let requestBody: any;
         try {
