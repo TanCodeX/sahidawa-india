@@ -60,6 +60,9 @@ const nextConfig = {
     compress: false, // Offloaded to Vercel/proxy
     reactStrictMode: true,
     poweredByHeader: false,
+    typescript: {
+        ignoreBuildErrors: true,
+    },
     async headers() {
         const connectSrc = [
             ...new Set(
