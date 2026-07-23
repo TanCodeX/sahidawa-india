@@ -6,6 +6,20 @@ export const revalidate = 60; // Cache for 1 minute (was 3600)
 
 export async function GET() {
     try {
+        const isBuild =
+            Boolean(process.env.CI) || process.env.NEXT_PHASE === "phase-production-build";
+        if (isBuild && !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            console.warn("Skipping real DB fetch in /api/stats during build");
+            return NextResponse.json({
+                banned: 0,
+                recalled: 0,
+                counterfeit: 0,
+                nsq: 0,
+                totalScans: 0,
+                verifiedPharmacies: 0,
+            });
+        }
+
         const serviceRoleSupabase = createServiceRoleSupabaseClient();
         const [bannedRes, recalledRes, counterfeitRes, nsqRes, scansRes, pharmaciesRes] =
             await Promise.all([

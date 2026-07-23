@@ -1,7 +1,12 @@
 export function getSupabaseUrl(): string {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const isBuild =
+        Boolean(process.env.CI) ||
+        Boolean(process.env.VERCEL) ||
+        process.env.NEXT_PHASE === "phase-production-build";
+
     if (!url) {
-        if (process.env.CI === "true" || process.env.NEXT_PHASE === "phase-production-build") {
+        if (isBuild) {
             return "https://placeholder-supabase-url.supabase.co";
         }
         throw new Error(
@@ -11,7 +16,7 @@ export function getSupabaseUrl(): string {
     try {
         new URL(url);
     } catch {
-        if (process.env.CI === "true" || process.env.NEXT_PHASE === "phase-production-build") {
+        if (isBuild) {
             return "https://placeholder-supabase-url.supabase.co";
         }
         throw new Error("NEXT_PUBLIC_SUPABASE_URL is not a valid URL.");
@@ -21,8 +26,13 @@ export function getSupabaseUrl(): string {
 
 export function getSupabaseAnonKey(): string {
     const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    const isBuild =
+        Boolean(process.env.CI) ||
+        Boolean(process.env.VERCEL) ||
+        process.env.NEXT_PHASE === "phase-production-build";
+
     if (!key) {
-        if (process.env.CI === "true" || process.env.NEXT_PHASE === "phase-production-build") {
+        if (isBuild) {
             return "placeholder-supabase-anon-key";
         }
         throw new Error(
